@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.zip
+*.apk
+.gradle/
+build/
+local.properties
+.claude/
+.DS_Store
+android/app/src/main/assets/www/
