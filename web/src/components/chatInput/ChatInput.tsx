@@ -161,8 +161,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     host.__onNativeImagePickFailed = () => {
       showToast({ key: 'readingImageFailed', type: 'error' })
     }
+    // 原生侧若迟迟没有回调（例如进程异常），结束骨架条避免一直转
+    const loadingTimer = window.setTimeout(() => setGalleryLoading(false), 5000)
     refresh()
     return () => {
+      window.clearTimeout(loadingTimer)
       delete host.__onNativeGalleryReady
       delete host.__onNativeImagePicked
       delete host.__onNativeImagePickFailed
