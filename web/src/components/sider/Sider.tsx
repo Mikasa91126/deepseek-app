@@ -18,7 +18,7 @@ import { useAndroidBack } from '../../services/backStack.js'
 import { usePresence } from '../../hooks/usePresence.js'
 import { groupSessions } from '../../services/chat/sessionGroups.js'
 import { newChat, removeSession, setPinned, useChatStore } from '../../services/chat/store.js'
-import { searchSessionIds } from '../../services/chat/search.js'
+import { searchSessions } from '../../services/chat/search.js'
 import type { SessionSummary } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
@@ -39,31 +39,31 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const activeId = useChatStore((state) => state.activeId)
   const apiKey = useSettings((state) => state.apiKey)
   const [query, setQuery] = useState('')
-  const [matchIds, setMatchIds] = useState<Set<string> | null>(null)
+  const [matches, setMatches] = useState<Map<string, string> | null>(null)
   const [searching, setSearching] = useState(false)
   const [now, setNow] = useState(Date.now)
   // 标题即时过滤；正文与思考的全文搜索在输入短暂停顿后异步进行
   useEffect(() => {
     const keyword = query.trim()
     if (!keyword) {
-      setMatchIds(null)
+      setMatches(null)
       setSearching(false)
       return
     }
-    setMatchIds(null)
+    setMatches(null)
     setSearching(true)
     let cancelled = false
     const timer = window.setTimeout(() => {
-      void searchSessionIds(keyword)
-        .then((ids) => {
+      void searchSessions(keyword)
+        .then((result) => {
           if (!cancelled) {
-            setMatchIds(ids)
+            setMatches(result)
             setSearching(false)
           }
         })
         .catch(() => {
           if (!cancelled) {
-            setMatchIds(new Set())
+            setMatches(new Map())
             setSearching(false)
           }
         })
@@ -80,9 +80,9 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
     }
     return sessions.filter(
       (session) =>
-        (session.title ?? '').toLowerCase().includes(keyword) || Boolean(matchIds?.has(session.id))
+        (session.title ?? '').toLowerCase().includes(keyword) || Boolean(matches?.has(session.id))
     )
-  }, [sessions, query, matchIds])
+  }, [sessions, query, matches])
   const groups = useMemo(() => groupSessions(filtered, now, t), [filtered, now, t])
   const [deleting, setDeleting] = useState<SessionSummary | null>(null)
   const [deletePending, setDeletePending] = useState(false)
@@ -241,6 +241,13 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           </div>
         ) : null}
         <div className={styles.list}>
+          {query.trim() ? (
+            <div className={styles.searchSummary}>
+              {searching
+                ? t('searchingChats')
+                : t('searchResultCount', { count: filtered.length })}
+            </div>
+          ) : null}
           {groups.length === 0 && query.trim() ? (
             <div className={styles.empty}>
               {searching ? t('searchingChats') : t('sessionsSearchEmpty')}
@@ -255,6 +262,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
                   session={session}
                   active={session.id === activeId}
                   onDelete={() => setDeleting(session)}
+                  snippet={matches?.get(session.id) || undefined}
                   selectable={mobile && managing}
                   selected={mobile && managing && selected.has(session.id)}
                   onToggle={() => toggleSelect(session.id)}

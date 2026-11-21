@@ -244,5 +244,6 @@ export const zh = {
   bulkDeleted: '已删除 {count} 个对话',
   bulkDeleteFailed: '部分对话删除失败，请重试',
   searchingChats: '正在搜索…',
+  searchResultCount: '找到 {count} 个对话',
   pinLimitReached: '最多可置顶 {count} 个对话',
 } as const

@@ -46,6 +46,35 @@
   line-height: 18px;
 }
 
+/* 搜索结果的命中片段 */
+.texts {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.texts .title {
+  flex: none;
+}
+
+.snippet {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.hasSnippet {
+  height: auto;
+  min-height: 40px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 /* 多选管理：左侧选择圈 */
 .selectable {
   cursor: pointer;
@@ -111,6 +140,17 @@
 
   .title {
     line-height: 22px;
+  }
+
+  .snippet {
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .hasSnippet {
+    min-height: 52px;
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
 
   .renameInput {

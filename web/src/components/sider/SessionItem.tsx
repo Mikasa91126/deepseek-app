@@ -13,6 +13,7 @@ export const SessionItem = memo(function SessionItem({
   session,
   active,
   onDelete,
+  snippet,
   selectable = false,
   selected = false,
   onToggle,
@@ -20,6 +21,8 @@ export const SessionItem = memo(function SessionItem({
   session: SessionSummary
   active: boolean
   onDelete: () => void
+  /** 搜索命中片段（来自对话正文/思考），标题命中时为空 */
+  snippet?: string
   /** 多选管理模式下显示选择圈，点击切换选中而非打开 */
   selectable?: boolean
   selected?: boolean
@@ -70,13 +73,16 @@ export const SessionItem = memo(function SessionItem({
 
   return (
     <div
-      className={clsx(styles.item, active && styles.active)}
+      className={clsx(styles.item, active && styles.active, snippet && styles.hasSnippet)}
       onClick={() => {
         selectSession(session.id)
         closeMobileSider()
       }}
     >
-      <div className={styles.title}>{displayTitle}</div>
+      <div className={styles.texts}>
+        <div className={styles.title}>{displayTitle}</div>
+        {snippet ? <div className={styles.snippet}>{snippet}</div> : null}
+      </div>
       <div className={styles.action} onClick={(event) => event.stopPropagation()}>
         <Menu
           options={[

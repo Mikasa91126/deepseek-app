@@ -258,5 +258,6 @@ export const en = {
   bulkDeleted: 'Deleted {count} chats',
   bulkDeleteFailed: 'Some chats could not be deleted. Please try again.',
   searchingChats: 'Searching...',
+  searchResultCount: '{count} chats found',
   pinLimitReached: 'You can pin up to {count} chats',
 } satisfies Record<keyof typeof zh, string>
