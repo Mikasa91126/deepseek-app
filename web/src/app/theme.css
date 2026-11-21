@@ -5,6 +5,24 @@
   font-variant-ligatures: no-contextual;
   /* 聊天字号缩放系数，设置页「字体大小」调整 */
   --app-font-scale: 1;
+  /* 统一动效时长与缓动 */
+  --app-motion-fast: 140ms;
+  --app-motion-base: 220ms;
+  --app-motion-slow: 320ms;
+  --app-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --app-ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+}
+
+/* 尊重系统的「减少动态效果」 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 body {

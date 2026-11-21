@@ -26,6 +26,7 @@ export const UserMessage = memo(function UserMessage({
   retryUploadId,
   isFirst,
   isLast,
+  enter = false,
   busy,
   versions,
   onSelectVersion,
@@ -36,6 +37,7 @@ export const UserMessage = memo(function UserMessage({
   retryUploadId: string | null
   isFirst: boolean
   isLast: boolean
+  enter?: boolean
   busy: boolean
   versions: MessageVersions
   onSelectVersion: SelectMessageVersion
@@ -68,7 +70,7 @@ export const UserMessage = memo(function UserMessage({
   }
 
   return (
-    <div className={clsx(styles.container, isFirst && styles.isFirst)}>
+    <div className={clsx(styles.container, isFirst && styles.isFirst, enter && styles.enter)}>
       {message.files.length > 0 ? (
         <div
           className={clsx(

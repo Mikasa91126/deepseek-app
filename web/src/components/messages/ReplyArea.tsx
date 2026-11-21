@@ -92,20 +92,22 @@ export const ReplyArea = memo(function ReplyArea({
           {open ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
         </div>
       ) : null}
-      {open || !title ? (
-        <div className={styles.steps}>
-          {view.steps.map((step, index) => (
-            <StepItem
-              key={stepKey(step, index)}
-              step={step}
-              message={message}
-              sources={view.sources}
-              streaming={streaming}
-              isLast={index === view.steps.length - 1}
-            />
-          ))}
+      <div className={clsx(styles.stepsWrap, (open || !title) && styles.stepsOpen)}>
+        <div className={styles.stepsInner}>
+          <div className={styles.steps}>
+            {view.steps.map((step, index) => (
+              <StepItem
+                key={stepKey(step, index)}
+                step={step}
+                message={message}
+                sources={view.sources}
+                streaming={streaming}
+                isLast={index === view.steps.length - 1}
+              />
+            ))}
+          </div>
         </div>
-      ) : null}
+      </div>
     </div>
   )
 })

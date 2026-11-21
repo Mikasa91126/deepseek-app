@@ -11,6 +11,7 @@ import {
 } from '../base/icons.js'
 import { setSiderCollapsed, useSettings } from '../../services/settings.js'
 import { useAndroidBack } from '../../services/backStack.js'
+import { usePresence } from '../../hooks/usePresence.js'
 import { groupSessions } from '../../services/chat/sessionGroups.js'
 import { newChat, removeSession, useChatStore } from '../../services/chat/store.js'
 import type { SessionSummary } from '../../services/chat/types.js'
@@ -203,18 +204,19 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
 /** 移动端抽屉：浮在页面上方，点空白区域关闭。 */
 export const MobileSider = () => {
   const open = useMobileSider((state) => state.open)
+  const { rendered, closing } = usePresence(open, 200)
   // 安卓返回键：优先收起抽屉
   useAndroidBack(() => {
     closeMobileSider()
     return true
   }, open)
-  if (!open) {
+  if (!rendered) {
     return null
   }
   return (
     <>
-      <div className={styles.drawerMask} onClick={closeMobileSider} />
-      <div className={styles.drawer}>
+      <div className={clsx(styles.drawerMask, closing && styles.closing)} onClick={closeMobileSider} />
+      <div className={clsx(styles.drawer, closing && styles.closing)}>
         <Sider mobile />
       </div>
     </>

@@ -11,6 +11,18 @@
   }
 }
 
+/* 新回复入场：轻微上浮 + 淡入 */
+.message.enter {
+  animation: messageIn 260ms var(--app-ease-out, ease-out) both;
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+}
+
 .waiting {
   display: flex;
   align-items: center;
@@ -97,11 +109,15 @@
   align-items: center;
   gap: 10px;
   opacity: 0;
-  transition: opacity var(--ds-transition-duration) var(--ds-ease-in-out);
+  transform: translateY(4px);
+  transition:
+    opacity var(--ds-transition-duration) var(--ds-ease-in-out),
+    transform var(--app-motion-base, 220ms) var(--app-ease-out, ease-out);
 }
 
 .alwaysShow {
   opacity: 1;
+  transform: none;
 }
 
 .continueButton {

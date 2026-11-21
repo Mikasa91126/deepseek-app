@@ -138,6 +138,7 @@ export const App = () => {
               </div>
             ) : session ? (
               <SessionView
+                key={session.id}
                 session={session}
                 streaming={streaming}
                 siderCollapsed={siderCollapsed}

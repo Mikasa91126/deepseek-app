@@ -351,7 +351,7 @@ const PersonalizePage = () => {
 }
 
 /** 设置主页面：全屏二级页，分组卡片与官方 App 一致 */
-export const SettingsScreen = () => {
+export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
   const t = useTranslate()
   const [page, setPage] = useState<Page>(() =>
     useSettingsDialog.getState().section === 'data' ? 'account' : 'root'
@@ -404,7 +404,12 @@ export const SettingsScreen = () => {
       className={styles.overlay}
       onMouseDown={(event) => event.target === event.currentTarget && closeSettings()}
     >
-      <div className={styles.page} role="dialog" aria-modal="true" aria-label={titles[page]}>
+      <div
+        className={clsx(styles.page, closing && styles.closing)}
+        role="dialog"
+        aria-modal="true"
+        aria-label={titles[page]}
+      >
         <div className={styles.header}>
           <button type="button" className={styles.back} aria-label={t('cancel')} onClick={goBack}>
             <span className={styles.backIcon}>
@@ -415,6 +420,10 @@ export const SettingsScreen = () => {
           <span className={styles.headerSpacer} />
         </div>
         <div className={styles.content}>
+          <div
+            key={page}
+            className={clsx(styles.pageBody, page === 'root' ? styles.pageBodyRoot : styles.pageBodySub)}
+          >
           {page === 'root' ? (
             <>
               <Group label={t('settingsGroupAccount')}>
@@ -502,6 +511,7 @@ export const SettingsScreen = () => {
           ) : (
             <PersonalizePage />
           )}
+          </div>
         </div>
       </div>
       {dialog === 'appearance' ? (
@@ -683,8 +693,18 @@ const VoiceDialog = ({
   const t = useTranslate()
   const [index, setIndex] = useState(() => Math.max(0, VOICES.findIndex((v) => v.id === value)))
   const scrollerRef = useRef<HTMLDivElement>(null)
+  const [closing, setClosing] = useState(false)
+  const closingRef = useRef(false)
+  const requestClose = () => {
+    if (closingRef.current) {
+      return
+    }
+    closingRef.current = true
+    setClosing(true)
+    window.setTimeout(onClose, 200)
+  }
   useAndroidBack(() => {
-    onClose()
+    requestClose()
     return true
   })
   const goTo = (next: number) => {
@@ -696,13 +716,18 @@ const VoiceDialog = ({
   }
   return (
     <div
-      className={styles.sheetOverlay}
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+      className={clsx(styles.sheetOverlay, closing && styles.closing)}
+      onMouseDown={(event) => event.target === event.currentTarget && requestClose()}
     >
-      <div className={styles.sheet} role="dialog" aria-modal="true" aria-label={t('settingsVoiceTitle')}>
+      <div
+        className={styles.sheet}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('settingsVoiceTitle')}
+      >
         <div className={styles.sheetHeader}>
           <div className={styles.sheetTitle}>{t('settingsVoiceTitle')}</div>
-          <button type="button" className={styles.sheetClose} aria-label={t('close')} onClick={onClose}>
+          <button type="button" className={styles.sheetClose} aria-label={t('close')} onClick={requestClose}>
             <IconCloseOutline16 />
           </button>
         </div>
@@ -746,7 +771,7 @@ const VoiceDialog = ({
           className={styles.voiceConfirm}
           onClick={() => {
             onConfirm(VOICES[index].id)
-            onClose()
+            requestClose()
           }}
         >
           {t('dialogConfirm')}

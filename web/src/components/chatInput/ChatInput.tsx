@@ -12,6 +12,7 @@ import {
 } from '../base/icons.js'
 import { setSearch, setThinking, useSettings } from '../../services/settings.js'
 import { useAndroidBack } from '../../services/backStack.js'
+import { usePresence } from '../../hooks/usePresence.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
@@ -70,6 +71,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const togglesRef = useRef<HTMLDivElement>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [recent, setRecent] = useState<RecentImage[]>(readRecentImages)
+  const { rendered: panelRendered, closing: panelClosing } = usePresence(panelOpen, 160)
 
   // 安卓返回键：优先收起「+」附件面板
   useAndroidBack(() => {
@@ -179,8 +181,12 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
 
   return (
     <div className={styles.composer}>
-      {panelOpen ? (
-        <div className={styles.attachPanel} role="dialog" aria-label={t('uploadFile')}>
+      {panelRendered ? (
+        <div
+          className={clsx(styles.attachPanel, panelClosing && styles.closing)}
+          role="dialog"
+          aria-label={t('uploadFile')}
+        >
           {recent.length > 0 ? (
             <div className={styles.recentStrip} aria-label={t('recentImages')}>
               {recent.map((item) => (

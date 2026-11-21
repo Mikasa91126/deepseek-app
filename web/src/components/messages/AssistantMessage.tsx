@@ -42,6 +42,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   sessionId,
   message,
   isLast,
+  enter = false,
   streaming,
   busy,
   versions,
@@ -50,6 +51,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   sessionId: string
   message: AssistantMessageType
   isLast: boolean
+  enter?: boolean
   streaming: boolean
   busy: boolean
   versions: MessageVersions
@@ -101,7 +103,7 @@ export const AssistantMessage = memo(function AssistantMessage({
     }
   }
   return (
-    <div className={styles.message}>
+    <div className={clsx(styles.message, enter && styles.enter)}>
       {refused ? null : (
         <ReplyArea
           message={message}

@@ -27,10 +27,29 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
+  animation: jumpIn 180ms var(--app-ease-spring, ease-out) both;
   transition: background-color 0.2s ease;
+
+  &.closing {
+    animation: jumpOut 150ms ease both;
+  }
 
   &:hover {
     background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+@keyframes jumpIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+}
+
+@keyframes jumpOut {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.94);
   }
 }
 

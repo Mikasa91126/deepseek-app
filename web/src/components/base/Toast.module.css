@@ -25,6 +25,17 @@
   pointer-events: none;
 }
 
+.toast.closing {
+  animation: leave 180ms ease both;
+}
+
+@keyframes leave {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
 /* 带图标时图标在左、文字左对齐，整体仍居中 */
 .error {
   display: flex;

@@ -2,6 +2,26 @@
   margin-bottom: 10px;
 }
 
+/* 思考/步骤区展开与收起（grid 高度过渡） */
+.stepsWrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0.4;
+  transition:
+    grid-template-rows var(--app-motion-base, 220ms) var(--app-ease-out, ease-out),
+    opacity var(--app-motion-base, 220ms) var(--app-ease-out, ease-out);
+}
+
+.stepsOpen {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.stepsInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .title {
   display: flex;
   align-items: center;

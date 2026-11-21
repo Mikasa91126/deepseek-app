@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import clsx from 'clsx'
 import { useIsMobile } from '../../app/viewport.js'
 import { useTranslate } from '../../i18n/index.js'
+import { usePresence } from '../../hooks/usePresence.js'
 import { IconArrowDownOutline16 } from '../base/icons.js'
 import {
   buildMessageVersions,
@@ -50,6 +52,7 @@ export const MessageList = ({
   const contentRef = useRef<HTMLDivElement>(null)
   const stickyRef = useRef(true)
   const [showJump, setShowJump] = useState(false)
+  const { rendered: jumpRendered, closing: jumpClosing } = usePresence(showJump, 150)
   const scrollTopRef = useRef(0)
   const restoreScrollRef = useRef<{ messageId: string; top: number } | null>(null)
   const messages = getVisibleMessages(session)
@@ -160,6 +163,7 @@ export const MessageList = ({
                   retryUploadId={uploadRetryId}
                   isFirst={index === 0}
                   isLast={index === lastIndex || index === lastIndex - 1}
+                  enter={index === lastIndex}
                   busy={streaming}
                   versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                   onSelectVersion={selectVersion}
@@ -170,6 +174,7 @@ export const MessageList = ({
                   sessionId={session.id}
                   message={message}
                   isLast={index === lastIndex}
+                  enter={index === lastIndex}
                   streaming={streaming && index === lastIndex}
                   busy={streaming}
                   versions={versions.get(message.id) ?? EMPTY_VERSIONS}
@@ -180,10 +185,10 @@ export const MessageList = ({
           </div>
         </div>
         {footer}
-        {showJump ? (
+        {jumpRendered ? (
           <button
             type="button"
-            className={styles.jumpButton}
+            className={clsx(styles.jumpButton, jumpClosing && styles.closing)}
             aria-label={t('scrollToBottom')}
             onClick={() => {
               stickyRef.current = true

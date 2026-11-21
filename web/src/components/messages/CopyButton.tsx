@@ -4,6 +4,7 @@ import { IconCheckOutline16, IconCopyOutline16 } from '../base/icons.js'
 import { IconButton } from '../base/IconButton.js'
 import { showToast } from '../base/toastState.js'
 import { copyText } from '../../utils/clipboard.js'
+import styles from './CopyButton.module.css'
 
 /** 复制成功后图标换成对勾 1 秒，期间再次点击不重复复制 */
 export const CopyButton = ({ text }: { text: string }) => {
@@ -14,7 +15,11 @@ export const CopyButton = ({ text }: { text: string }) => {
 
   return (
     <IconButton
-      icon={copied ? <IconCheckOutline16 /> : <IconCopyOutline16 />}
+      icon={
+        <span key={copied ? 'check' : 'copy'} className={styles.iconPop}>
+          {copied ? <IconCheckOutline16 /> : <IconCopyOutline16 />}
+        </span>
+      }
       tooltip={t('copy')}
       tooltipPlacement="bottom"
       onClick={async () => {

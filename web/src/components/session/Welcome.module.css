@@ -26,6 +26,14 @@
   font-weight: 600;
   text-align: center;
   color: var(--dsw-alias-label-primary);
+  animation: greetingIn 500ms var(--app-ease-out, ease-out) both;
+}
+
+@keyframes greetingIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 
 .logo {
@@ -33,6 +41,18 @@
   height: 64px;
   margin-bottom: 16px;
   user-select: none;
+  animation: logoFloat 6s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-5px) scale(1.03);
+  }
 }
 
 @media (max-width: 439px) {

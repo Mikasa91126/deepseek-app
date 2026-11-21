@@ -20,6 +20,25 @@
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.06),
     0 12px 32px rgba(0, 0, 0, 0.12);
+  animation: panelIn 180ms var(--app-ease-spring, ease-out) both;
+
+  &.closing {
+    animation: panelOut 140ms ease both;
+  }
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+@keyframes panelOut {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
 }
 
 .recentStrip {
@@ -80,6 +99,11 @@
   line-height: 20px;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+  transition: background-color var(--app-motion-fast, 140ms) var(--app-ease-out, ease-out);
+
+  &:active {
+    transform: scale(0.97);
+  }
 
   &:hover {
     background-color: var(--dsw-alias-interactive-bg-hover);
@@ -109,6 +133,11 @@
   border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
   background: var(--dsw-specific-input-major);
   overflow: hidden;
+  transition: border-color var(--app-motion-base, 220ms) var(--app-ease-out, ease-out);
+
+  &:focus-within {
+    border-color: var(--dsw-alias-border-l3);
+  }
 }
 
 .session {
@@ -371,8 +400,12 @@
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  transition-property: border, background;
-  transition-duration: 0.2s;
+  transition-property: border, background, transform;
+  transition-duration: 0.2s, 0.2s, var(--app-motion-fast, 140ms);
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
 
   &:hover:not(:disabled) {
     background-color: var(--dsw-alias-interactive-bg-hover);
@@ -425,7 +458,13 @@
   background: var(--dsw-alias-button-primary-fill);
   color: var(--dsw-static-neutral-bluish-00);
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition:
+    background 0.2s ease,
+    transform var(--app-motion-fast, 140ms) var(--app-ease-out, ease-out);
+
+  &:active:not(.disabled) {
+    transform: scale(0.9);
+  }
 
   &:not(.disabled):hover {
     background: var(--dsw-alias-button-primary-hover);

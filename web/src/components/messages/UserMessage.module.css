@@ -8,8 +8,19 @@
     padding-top: 34px;
   }
 
+  &.enter {
+    animation: messageIn 240ms var(--app-ease-out, ease-out) both;
+  }
+
   &:hover .actions {
     opacity: 1;
+  }
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
 }
 
