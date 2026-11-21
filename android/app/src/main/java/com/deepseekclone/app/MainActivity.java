@@ -130,6 +130,18 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 从系统设置改完深浅色返回应用时，配置可能没有触发 onConfigurationChanged
+        if (webView != null) {
+            applySystemBars();
+            webView.setBackgroundColor(isSystemDark() ? Color.BLACK : Color.WHITE);
+            webView.evaluateJavascript(
+                    "window.__onNativeThemeChanged && window.__onNativeThemeChanged()", null);
+        }
+    }
+
     /** 从 assets/www 以 https 来源提供页面与静态资源 */
     private class AssetClient extends WebViewClient {
         @Override
