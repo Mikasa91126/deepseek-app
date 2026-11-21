@@ -742,3 +742,25 @@ export const IconPhotoOutline24 = () => (
     />
   </svg>
 )
+
+/** 会话管理（筛选滑块） */
+export const IconSlidersOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2.2 5.4h11.6M2.2 10.6h11.6" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
+    <circle cx={10.2} cy={5.4} r={1.9} fill="var(--dsw-alias-bg-layer-2, #fff)" stroke="currentColor" strokeWidth={1.3} />
+    <circle cx={5.8} cy={10.6} r={1.9} fill="var(--dsw-alias-bg-layer-2, #fff)" stroke="currentColor" strokeWidth={1.3} />
+  </svg>
+)
+
+/** 置顶 */
+export const IconPinOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M5.6 2.4h4.8l-.8 3.4 2.3 2.3H4.1l2.3-2.3-.8-3.4Z"
+      stroke="currentColor"
+      strokeWidth={1.3}
+      strokeLinejoin="round"
+    />
+    <path d="M8 8.1v5.5" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
+  </svg>
+)

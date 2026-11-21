@@ -5,21 +5,14 @@
   width: 100%;
 }
 
-/* 「+」附件面板：最近图片 + 拍照 / 相册 / 文件 */
+/* 「+」附件面板：位于输入栏下方，输入栏随之上移 */
 .attachPanel {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  left: 0;
-  z-index: 40;
+  position: relative;
+  z-index: 30;
   box-sizing: border-box;
-  padding: 14px;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 20px;
-  background-color: var(--dsw-alias-bg-layer-2);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    0 12px 32px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 2px 6px;
   animation: panelIn 180ms var(--app-ease-spring, ease-out) both;
 
   &.closing {
@@ -30,23 +23,25 @@
 @keyframes panelIn {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(-8px);
   }
 }
 
 @keyframes panelOut {
   to {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(-6px);
   }
 }
 
 .recentStrip {
   display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 14px;
   overflow-x: auto;
   scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar {
     display: none;
@@ -55,14 +50,18 @@
 
 .recentCard {
   flex-shrink: 0;
-  width: 64px;
-  height: 64px;
+  width: 96px;
+  height: 96px;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--dsw-alias-bg-skeleton);
   cursor: pointer;
+  scroll-snap-align: start;
+  transition:
+    transform var(--app-motion-fast, 140ms) var(--app-ease-out, ease-out),
+    border-color var(--app-motion-fast, 140ms) var(--app-ease-out, ease-out);
 
   img {
     display: block;
@@ -73,6 +72,10 @@
 
   &:hover {
     border-color: var(--dsw-alias-border-l3);
+  }
+
+  &:active {
+    transform: scale(0.96);
   }
 }
 

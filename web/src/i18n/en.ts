@@ -243,4 +243,20 @@ export const en = {
   exportSaved: 'Saved to the Downloads folder',
   historyImportHint:
     'In the official app: Settings → Data → Export all chats, then pick the exported ZIP here.',
+  readingZipFile: 'Reading the selected ZIP...',
+  readingImage: 'Reading image...',
+  readingImageFailed: 'Failed to read the image. Please try again.',
+  pinnedGroupLabel: 'Pinned',
+  manageChats: 'Select chats',
+  pin: 'Pin',
+  unpin: 'Unpin',
+  pinnedToast: 'Pinned',
+  unpinnedToast: 'Unpinned',
+  bulkDeleteTitle: 'Delete selected chats',
+  bulkDeleteDescription:
+    'The selected {count} chats will be permanently deleted and cannot be recovered. Delete them?',
+  bulkDeleted: 'Deleted {count} chats',
+  bulkDeleteFailed: 'Some chats could not be deleted. Please try again.',
+  searchingChats: 'Searching...',
+  pinLimitReached: 'You can pin up to {count} chats',
 } satisfies Record<keyof typeof zh, string>

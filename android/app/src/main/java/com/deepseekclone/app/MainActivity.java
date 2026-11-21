@@ -4,15 +4,20 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ClipData;
+import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.util.Base64;
+import android.util.Size;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -25,8 +30,13 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,6 +52,8 @@ public class MainActivity extends Activity {
     private static final String ASSET_HOST = "appassets.local";
     private static final int REQ_FILE = 1001;
     private static final int REQ_AUDIO = 1002;
+    private static final int REQ_NATIVE_ZIP = 1003;
+    private static final int REQ_MEDIA_IMAGES = 1004;
 
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
@@ -84,6 +96,24 @@ public class MainActivity extends Activity {
                 return null;
             }
             String path = uri.getPath();
+            // 安卓端通过系统选择器挑中的历史 ZIP：先拷到缓存，再以同源 URL 提供给页面
+            if (path != null && path.startsWith("/__picked__/")) {
+                String name = path.substring("/__picked__/".length());
+                if (!name.matches("[A-Za-z0-9._-]+")) {
+                    return emptyResponse(404);
+                }
+                File file = new File(new File(getCacheDir(), "picked"), name);
+                if (!file.isFile()) {
+                    return emptyResponse(404);
+                }
+                try {
+                    return new WebResourceResponse(
+                            guessMime(name), null, 200, "OK",
+                            Collections.emptyMap(), new FileInputStream(file));
+                } catch (IOException e) {
+                    return emptyResponse(500);
+                }
+            }
             if (path == null || path.equals("/")) {
                 path = "/index.html";
             }
@@ -114,6 +144,12 @@ public class MainActivity extends Activity {
                 return null;
             }
         }
+    }
+
+    private static WebResourceResponse emptyResponse(int code) {
+        return new WebResourceResponse(
+                "text/plain", "utf-8", code, "Error",
+                Collections.emptyMap(), new ByteArrayInputStream(new byte[0]));
     }
 
     private static String guessMime(String path) {
@@ -230,6 +266,12 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQ_NATIVE_ZIP) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                copyPickedZip(data.getData());
+            }
+            return;
+        }
         if (requestCode == REQ_FILE) {
             if (filePathCallback == null) {
                 return;
@@ -259,9 +301,73 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
     }
 
+    /** 系统选择器返回的 ZIP：后台拷贝到缓存，再通知网页以同源地址读取 */
+    private void copyPickedZip(Uri uri) {
+        new Thread(() -> {
+            try {
+                String name = queryDisplayName(uri);
+                if (name == null || name.trim().isEmpty()) {
+                    name = "deepseek_data.zip";
+                }
+                File dir = new File(getCacheDir(), "picked");
+                if (!dir.exists() && !dir.mkdirs()) {
+                    throw new IOException("cache dir unavailable");
+                }
+                File[] olds = dir.listFiles();
+                if (olds != null) {
+                    for (File old : olds) {
+                        //noinspection ResultOfMethodCallIgnored
+                        old.delete();
+                    }
+                }
+                File out = new File(dir, "import.zip");
+                try (InputStream in = getContentResolver().openInputStream(uri);
+                     OutputStream os = new FileOutputStream(out)) {
+                    if (in == null) {
+                        throw new IOException("cannot open picked file");
+                    }
+                    byte[] buffer = new byte[64 * 1024];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        os.write(buffer, 0, read);
+                    }
+                }
+                String script = "window.__onNativeZipPicked && window.__onNativeZipPicked("
+                        + "'https://" + ASSET_HOST + "/__picked__/import.zip', "
+                        + JSONObject.quote(name) + ")";
+                runOnUiThread(() -> webView.evaluateJavascript(script, null));
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity.this, "读取所选文件失败", Toast.LENGTH_SHORT).show();
+                    webView.evaluateJavascript(
+                            "window.__onNativeZipPickedFailed && window.__onNativeZipPickedFailed()",
+                            null);
+                });
+            }
+        }).start();
+    }
+
+    private String queryDisplayName(Uri uri) {
+        try (Cursor cursor = getContentResolver().query(
+                uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                return cursor.getString(0);
+            }
+        } catch (Exception ignored) {
+            // 部分来源不支持查询名称，使用默认文件名
+        }
+        return null;
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions,
                                            int[] grantResults) {
+        if (requestCode == REQ_MEDIA_IMAGES) {
+            // 授权结果通知网页刷新「+」面板的相册图片条
+            webView.evaluateJavascript(
+                    "window.__onNativeGalleryReady && window.__onNativeGalleryReady()", null);
+            return;
+        }
         if (requestCode == REQ_AUDIO && pendingAudioRequest != null) {
             if (grantResults.length > 0
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -298,8 +404,23 @@ public class MainActivity extends Activity {
                 });
     }
 
-    /** 导出历史对话等文件：保存到系统「下载」目录 */
+    /** 导出历史对话等文件保存到系统「下载」目录；pickZip / 相册相关能力供网页调用 */
     public class Bridge {
+        @JavascriptInterface
+        public boolean pickZip() {
+            runOnUiThread(() -> {
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
+                try {
+                    startActivityForResult(intent, REQ_NATIVE_ZIP);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "无法打开文件选择器", Toast.LENGTH_SHORT).show();
+                }
+            });
+            return true;
+        }
+
         @JavascriptInterface
         public boolean saveFile(String name, String base64) {
             try {
@@ -340,6 +461,187 @@ public class MainActivity extends Activity {
                 return true;
             } catch (Exception e) {
                 return false;
+            }
+        }
+
+        /** 系统相册最近图片：按拍摄时间从新到旧，返回 [{id, name, dataUrl}]（缩略图 base64） */
+        @JavascriptInterface
+        public String listRecentImages(int limit) {
+            if (!hasGalleryPermission()) {
+                requestGalleryPermission();
+                return "[]";
+            }
+            JSONArray out = new JSONArray();
+            int max = Math.max(1, Math.min(limit, 60));
+            String[] projection = {
+                    MediaStore.Images.Media._ID,
+                    MediaStore.Images.Media.DISPLAY_NAME,
+                    MediaStore.Images.Media.DATE_ADDED,
+            };
+            String order = MediaStore.Images.Media.DATE_ADDED + " DESC";
+            try (Cursor cursor = getContentResolver().query(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    projection, null, null, order)) {
+                if (cursor == null) {
+                    return "[]";
+                }
+                int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+                int nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME);
+                int count = 0;
+                while (cursor.moveToNext() && count < max) {
+                    long id = cursor.getLong(idColumn);
+                    Uri uri = ContentUris.withAppendedId(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                    String name = cursor.getString(nameColumn);
+                    if (name == null || name.trim().isEmpty()) {
+                        name = "image-" + id + ".jpg";
+                    }
+                    String dataUrl = thumbnailDataUrl(uri, id);
+                    if (dataUrl == null) {
+                        continue;
+                    }
+                    JSONObject item = new JSONObject();
+                    item.put("id", uri.toString());
+                    item.put("name", name);
+                    item.put("dataUrl", dataUrl);
+                    out.put(item);
+                    count++;
+                }
+            } catch (Exception e) {
+                return "[]";
+            }
+            return out.toString();
+        }
+
+        /** 用户在「+」面板点选相册图片：把原图拷到缓存，再通知网页读取并加入附件 */
+        @JavascriptInterface
+        public boolean pickGalleryImage(String id) {
+            final Uri uri;
+            try {
+                uri = Uri.parse(id);
+            } catch (Exception e) {
+                return false;
+            }
+            new Thread(() -> {
+                try {
+                    File dir = new File(getCacheDir(), "picked");
+                    if (!dir.exists() && !dir.mkdirs()) {
+                        throw new IOException("cache dir unavailable");
+                    }
+                    File[] olds = dir.listFiles();
+                    if (olds != null) {
+                        for (File old : olds) {
+                            if (old.getName().startsWith("gallery-")) {
+                                //noinspection ResultOfMethodCallIgnored
+                                old.delete();
+                            }
+                        }
+                    }
+                    String mime = getContentResolver().getType(uri);
+                    String extension = mimeToExtension(mime);
+                    File out = new File(dir, "gallery-" + System.currentTimeMillis() + extension);
+                    copyUriToFile(uri, out);
+                    String name = queryDisplayName(uri);
+                    if (name == null || name.trim().isEmpty()) {
+                        name = "image" + extension;
+                    } else if (!name.contains(".")) {
+                        name = name + extension;
+                    }
+                    String script = "window.__onNativeImagePicked && window.__onNativeImagePicked("
+                            + "'https://" + ASSET_HOST + "/__picked__/" + out.getName() + "', "
+                            + JSONObject.quote(name) + ")";
+                    runOnUiThread(() -> webView.evaluateJavascript(script, null));
+                } catch (Exception e) {
+                    runOnUiThread(() -> webView.evaluateJavascript(
+                            "window.__onNativeImagePickFailed && window.__onNativeImagePickFailed()",
+                            null));
+                }
+            }).start();
+            return true;
+        }
+    }
+
+    private boolean hasGalleryPermission() {
+        if (Build.VERSION.SDK_INT >= 34) {
+            // Android 14 起允许「仅选择的照片」部分授权
+            return checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES)
+                    == PackageManager.PERMISSION_GRANTED
+                    || checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+        String permission = Build.VERSION.SDK_INT >= 33
+                ? Manifest.permission.READ_MEDIA_IMAGES
+                : Manifest.permission.READ_EXTERNAL_STORAGE;
+        return checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestGalleryPermission() {
+        String[] permissions;
+        if (Build.VERSION.SDK_INT >= 34) {
+            permissions = new String[]{
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+            };
+        } else if (Build.VERSION.SDK_INT >= 33) {
+            permissions = new String[]{Manifest.permission.READ_MEDIA_IMAGES};
+        } else {
+            permissions = new String[]{Manifest.permission.READ_EXTERNAL_STORAGE};
+        }
+        runOnUiThread(() -> requestPermissions(permissions, REQ_MEDIA_IMAGES));
+    }
+
+    /** 系统相册缩略图（JPEG base64），失败时返回 null 由调用方跳过该条 */
+    private String thumbnailDataUrl(Uri uri, long id) {
+        Bitmap bitmap = null;
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                bitmap = getContentResolver().loadThumbnail(uri, new Size(192, 192), null);
+            } else {
+                bitmap = MediaStore.Images.Thumbnails.getThumbnail(
+                        getContentResolver(), id, MediaStore.Images.Thumbnails.MINI_KIND, null);
+            }
+            if (bitmap == null) {
+                return null;
+            }
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, output);
+            return "data:image/jpeg;base64,"
+                    + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (bitmap != null) {
+                bitmap.recycle();
+            }
+        }
+    }
+
+    private static String mimeToExtension(String mime) {
+        if (mime == null) {
+            return ".jpg";
+        }
+        if (mime.contains("png")) {
+            return ".png";
+        }
+        if (mime.contains("webp")) {
+            return ".webp";
+        }
+        if (mime.contains("gif")) {
+            return ".gif";
+        }
+        return ".jpg";
+    }
+
+    private void copyUriToFile(Uri uri, File out) throws IOException {
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             OutputStream os = new FileOutputStream(out)) {
+            if (in == null) {
+                throw new IOException("cannot open picked file");
+            }
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                os.write(buffer, 0, read);
             }
         }
     }

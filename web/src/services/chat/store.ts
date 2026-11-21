@@ -96,7 +96,9 @@ export const useChatStore = create<ChatState>(() => ({
 const { getState: get, setState: set } = useChatStore
 
 const sortSessions = (sessions: SessionSummary[]) =>
-  [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
+  [...sessions].sort(
+    (a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt
+  )
 
 const getSession = (id: string) => {
   const cache = get().sessionCache
@@ -394,46 +396,72 @@ const waitForIdle = (sessionId?: string) =>
 /**
  * 替换历史对话：先写入暂存，成功后原子替换旧记录；写入为空即删除全部会话与附件。
  * 期间停止生成并禁止修改会话；失败时清除暂存，保留原有记录。
+ * 读取文件在 WebView 中可能悬挂，超过时限后主动放弃并解锁界面。
  */
+const HISTORY_REPLACE_TIMEOUT = 4 * 60 * 1000
+
 export const replaceHistory = async (write: () => Promise<void>): Promise<number> => {
   if (get().importingHistory) {
     throw new Error('History replacement is already in progress')
   }
   set({ importingHistory: true })
+  let timer: number | undefined
   try {
-    for (const controller of Object.values(get().streaming)) {
-      controller.abort()
+    const run = async () => {
+      for (const controller of Object.values(get().streaming)) {
+        controller.abort()
+      }
+      // 已开始的单条删除先同步到内存，避免本次替换失败后列表残留已被删除的记录。
+      await Promise.all(deletionTasks)
+      historyEpoch += 1
+      const epoch = historyEpoch
+      initTask = undefined
+      sessionLoads.clear()
+      await waitForIdle()
+      await db.clearStaging()
+      let summaries: SessionSummary[]
+      try {
+        await write()
+        // 超时后 epoch 变化：迟到的写入不得再提交，避免覆盖已经恢复的界面状态。
+        if (epoch !== historyEpoch) {
+          throw new Error('History replacement timed out')
+        }
+        summaries = await db.commitStaging()
+      } catch (error) {
+        await db.clearStaging().catch(db.reportStorageError('clear unfinished history replacement'))
+        throw error
+      }
+      if (epoch !== historyEpoch) {
+        throw new Error('History replacement timed out')
+      }
+      sessionAccess.clear()
+      unsavedSessions.clear()
+      pendingFiles.clear()
+      clearAllDrafts()
+      set({
+        ready: true,
+        initError: false,
+        sessions: sortSessions(summaries),
+        sessionCache: {},
+        sessionLoadErrors: {},
+        sessionSaveErrors: {},
+        activeId: null,
+      })
+      return summaries.length
     }
-    // 已开始的单条删除先同步到内存，避免本次替换失败后列表残留已被删除的记录。
-    await Promise.all(deletionTasks)
-    historyEpoch += 1
-    initTask = undefined
-    sessionLoads.clear()
-    await waitForIdle()
-    await db.clearStaging()
-    let summaries: SessionSummary[]
-    try {
-      await write()
-      summaries = await db.commitStaging()
-    } catch (error) {
-      await db.clearStaging().catch(db.reportStorageError('clear unfinished history replacement'))
-      throw error
-    }
-    sessionAccess.clear()
-    unsavedSessions.clear()
-    pendingFiles.clear()
-    clearAllDrafts()
-    set({
-      ready: true,
-      initError: false,
-      sessions: sortSessions(summaries),
-      sessionCache: {},
-      sessionLoadErrors: {},
-      sessionSaveErrors: {},
-      activeId: null,
-    })
-    return summaries.length
+    return await Promise.race([
+      run(),
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(() => {
+          historyEpoch += 1
+          reject(new Error('History replacement timed out'))
+        }, HISTORY_REPLACE_TIMEOUT)
+      }),
+    ])
   } finally {
+    if (timer !== undefined) {
+      window.clearTimeout(timer)
+    }
     set({ importingHistory: false })
     retrySaveSessions()
     const { activeId, ready } = get()
@@ -450,6 +478,33 @@ export const newChat = () => {
   if (!get().importingHistory) {
     set({ activeId: null })
     trimSessionCache()
+  }
+}
+
+/** 置顶 / 取消置顶：更新列表顺序并持久化会话与摘要 */
+export const setPinned = (ids: string[], pinned: boolean) => {
+  if (get().importingHistory || ids.length === 0) {
+    return
+  }
+  const targets = new Set(ids)
+  set((state) => ({
+    sessions: sortSessions(
+      state.sessions.map((session) =>
+        targets.has(session.id)
+          ? { ...session, ...(pinned ? { pinned: true } : { pinned: undefined }) }
+          : session
+      )
+    ),
+  }))
+  for (const id of ids) {
+    if (getSession(id)) {
+      updateSession(id, (session) => ({ ...session, ...(pinned ? { pinned: true } : { pinned: undefined }) }))
+      persist(id)
+    } else {
+      void db
+        .setSessionPinned(id, pinned)
+        .catch(db.reportStorageError('pin session'))
+    }
   }
 }
 

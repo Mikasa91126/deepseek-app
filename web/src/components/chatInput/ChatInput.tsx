@@ -45,6 +45,15 @@ import { Spectrum } from './Spectrum.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './ChatInput.module.css'
 
+/** 安卓壳注入的原生能力：相册列表、图片选择、历史 ZIP 选择 */
+type AndroidGalleryItem = { id: string; name: string; dataUrl: string }
+type AndroidBridge = {
+  pickZip?: () => boolean
+  listRecentImages?: (limit: number) => string
+  pickGalleryImage?: (id: string) => boolean
+}
+const getAndroidBridge = () => (window as unknown as { AndroidBridge?: AndroidBridge }).AndroidBridge
+
 /** 输入框：自适应高度的文本框 + 文件 + 深度思考与智能搜索开关 + 语音输入 + 发送 / 停止 */
 export const ChatInput = memo(function ChatInput({ sessionId }: { sessionId: string | null }) {
   // 切换目标时释放录音、转写和 DOM 状态；文字与附件由草稿服务保留。
@@ -71,7 +80,71 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const togglesRef = useRef<HTMLDivElement>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const [recent, setRecent] = useState<RecentImage[]>(readRecentImages)
+  const [gallery, setGallery] = useState<AndroidGalleryItem[]>([])
   const { rendered: panelRendered, closing: panelClosing } = usePresence(panelOpen, 160)
+
+  // 打开「+」面板时读取系统相册（仅安卓壳）：按拍摄时间从新到旧
+  useEffect(() => {
+    if (!panelOpen) {
+      return
+    }
+    const bridge = getAndroidBridge()
+    if (!bridge?.listRecentImages) {
+      return
+    }
+    const refresh = () => {
+      try {
+        const raw = bridge.listRecentImages?.(24) ?? '[]'
+        const items: unknown = JSON.parse(raw)
+        if (Array.isArray(items)) {
+          setGallery(
+            items.filter(
+              (item): item is AndroidGalleryItem =>
+                typeof item === 'object' &&
+                item !== null &&
+                typeof (item as AndroidGalleryItem).id === 'string' &&
+                typeof (item as AndroidGalleryItem).dataUrl === 'string'
+            )
+          )
+        }
+      } catch (error) {
+        console.error('gallery list failed', error)
+      }
+    }
+    refresh()
+    const host = window as unknown as {
+      __onNativeGalleryReady?: () => void
+      __onNativeImagePicked?: (url: string, name: string) => void
+      __onNativeImagePickFailed?: () => void
+    }
+    host.__onNativeGalleryReady = refresh
+    host.__onNativeImagePicked = async (url: string, name: string) => {
+      try {
+        const response = await fetch(url)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        const blob = await response.blob()
+        acceptFiles([
+          new File([blob], name || 'image.jpg', {
+            type: blob.type.startsWith('image/') ? blob.type : 'image/jpeg',
+          }),
+        ])
+      } catch (error) {
+        console.error('native image pick failed', error)
+        showToast({ key: 'readingImageFailed', type: 'error' })
+      }
+    }
+    host.__onNativeImagePickFailed = () => {
+      showToast({ key: 'readingImageFailed', type: 'error' })
+    }
+    return () => {
+      delete host.__onNativeGalleryReady
+      delete host.__onNativeImagePicked
+      delete host.__onNativeImagePickFailed
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelOpen])
 
   // 安卓返回键：优先收起「+」附件面板
   useAndroidBack(() => {
@@ -181,61 +254,6 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
 
   return (
     <div className={styles.composer}>
-      {panelRendered ? (
-        <div
-          className={clsx(styles.attachPanel, panelClosing && styles.closing)}
-          role="dialog"
-          aria-label={t('uploadFile')}
-        >
-          {recent.length > 0 ? (
-            <div className={styles.recentStrip} aria-label={t('recentImages')}>
-              {recent.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={styles.recentCard}
-                  aria-label={item.name}
-                  onClick={() => {
-                    void recentImageToFile(item)
-                      .then((file) => acceptFiles([file]))
-                      .catch(() => setPanelOpen(false))
-                  }}
-                >
-                  <img src={item.dataUrl} alt="" draggable={false} />
-                </button>
-              ))}
-            </div>
-          ) : null}
-          <div className={styles.actionTiles}>
-            <button
-              type="button"
-              className={styles.actionTile}
-              onClick={() => cameraInputRef.current?.click()}
-            >
-              <IconCameraOutline24 />
-              <span>{t('takePhoto')}</span>
-            </button>
-            <button
-              type="button"
-              className={styles.actionTile}
-              onClick={() => galleryInputRef.current?.click()}
-            >
-              <IconPhotoOutline24 />
-              <span>{t('chooseFromAlbum')}</span>
-            </button>
-            <button
-              type="button"
-              className={styles.actionTile}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <span className={styles.actionIcon}>
-                <IconPaperclipOutline16 />
-              </span>
-              <span>{t('chooseFile')}</span>
-            </button>
-          </div>
-        </div>
-      ) : null}
       <div
         className={clsx(styles.wrapper, sessionId === null ? styles.home : styles.session)}
         onClick={(event) => {
@@ -399,6 +417,81 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       </div>
       {dragging ? <DragMask /> : null}
     </div>
+      {panelRendered ? (
+        <div
+          className={clsx(styles.attachPanel, panelClosing && styles.closing)}
+          role="dialog"
+          aria-label={t('uploadFile')}
+        >
+          {gallery.length > 0 ? (
+            <div className={styles.recentStrip} aria-label={t('chooseFromAlbum')}>
+              {gallery.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={styles.recentCard}
+                  aria-label={item.name}
+                  onClick={() => {
+                    const bridge = getAndroidBridge()
+                    if (bridge?.pickGalleryImage) {
+                      showToast({ key: 'readingImage' })
+                      bridge.pickGalleryImage(item.id)
+                    }
+                  }}
+                >
+                  <img src={item.dataUrl} alt="" draggable={false} />
+                </button>
+              ))}
+            </div>
+          ) : recent.length > 0 ? (
+            <div className={styles.recentStrip} aria-label={t('recentImages')}>
+              {recent.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={styles.recentCard}
+                  aria-label={item.name}
+                  onClick={() => {
+                    void recentImageToFile(item)
+                      .then((file) => acceptFiles([file]))
+                      .catch(() => setPanelOpen(false))
+                  }}
+                >
+                  <img src={item.dataUrl} alt="" draggable={false} />
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className={styles.actionTiles}>
+            <button
+              type="button"
+              className={styles.actionTile}
+              onClick={() => cameraInputRef.current?.click()}
+            >
+              <IconCameraOutline24 />
+              <span>{t('takePhoto')}</span>
+            </button>
+            <button
+              type="button"
+              className={styles.actionTile}
+              onClick={() => galleryInputRef.current?.click()}
+            >
+              <IconPhotoOutline24 />
+              <span>{t('chooseFromAlbum')}</span>
+            </button>
+            <button
+              type="button"
+              className={styles.actionTile}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <span className={styles.actionIcon}>
+                <IconPaperclipOutline16 />
+              </span>
+              <span>{t('chooseFile')}</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

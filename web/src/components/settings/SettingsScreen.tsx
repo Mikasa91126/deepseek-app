@@ -142,6 +142,37 @@ const DataPage = () => {
   const empty = useChatStore((state) => state.sessions.length === 0)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // 安卓壳：原生选择器把 ZIP 拷到缓存后，通过同源 URL 通知页面（绕开 WebView 对 content:// 的读取）
+  useEffect(() => {
+    const host = window as unknown as {
+      __onNativeZipPicked?: (url: string, name: string) => void
+      __onNativeZipPickedFailed?: () => void
+    }
+    host.__onNativeZipPicked = async (url: string, name: string) => {
+      try {
+        const response = await fetch(url)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        const blob = await response.blob()
+        historyImport.select(
+          new File([blob], name || 'deepseek_data.zip', { type: 'application/zip' })
+        )
+      } catch (error) {
+        console.error('native zip import failed', error)
+        showToast({ key: 'historyImportFailed', type: 'error' })
+      }
+    }
+    host.__onNativeZipPickedFailed = () => {
+      showToast({ key: 'historyImportFailed', type: 'error' })
+    }
+    return () => {
+      host.__onNativeZipPicked = undefined
+      host.__onNativeZipPickedFailed = undefined
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const onExport = async () => {
     setExporting(true)
     try {
@@ -181,9 +212,19 @@ const DataPage = () => {
           icon={<IconUploadOutline14 />}
           label={t('historyImport')}
           onClick={() => {
-            if (!busy) {
-              inputRef.current?.click()
+            if (busy) {
+              return
             }
+            // 安卓壳内使用原生选择器（先拷贝到缓存再读取），网页端走普通文件选择
+            const bridge = (
+              window as unknown as { AndroidBridge?: { pickZip?: () => boolean } }
+            ).AndroidBridge
+            if (bridge?.pickZip) {
+              showToast({ key: 'readingZipFile' })
+              bridge.pickZip()
+              return
+            }
+            inputRef.current?.click()
           }}
         />
         <input
@@ -891,7 +932,8 @@ const useHistoryImport = () => {
     try {
       const count = await importHistory(file)
       showToast({ key: count === 1 ? 'historyImportedOne' : 'historyImported', params: { count } })
-    } catch {
+    } catch (error) {
+      console.error('history import failed', error)
       showToast({ key: 'historyImportFailed', type: 'error' })
     } finally {
       importing.current = false

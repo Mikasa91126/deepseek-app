@@ -167,6 +167,22 @@ export const AssistantMessage = memo(function AssistantMessage({
                 </a>
               </>
             ) : null}
+            {notice.action === 'retry' ? (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className={styles.noticeAction}
+                  disabled={busy}
+                  onClick={() => {
+                    stopReadAloud()
+                    regenerateReply(sessionId, message.id)
+                  }}
+                >
+                  {t('retry')}
+                </button>
+              </>
+            ) : null}
           </span>
         </div>
       ) : null}

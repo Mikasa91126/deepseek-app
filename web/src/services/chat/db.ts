@@ -78,8 +78,37 @@ const getDB = () =>
 export const loadSessionSummaries = async (): Promise<SessionSummary[]> =>
   (await (await getDB()).getAll('sessionSummaries')).map(toSessionSummary)
 
+/** 只更新置顶状态，避免为列表操作加载整段消息 */
+export const setSessionPinned = async (sessionId: string, pinned: boolean): Promise<void> => {
+  const tx = (await getDB()).transaction(['sessions', 'sessionSummaries'], 'readwrite')
+  const flag = pinned || undefined
+  await Promise.all([
+    (async () => {
+      try {
+        const sessions = tx.objectStore('sessions')
+        const session = await sessions.get(sessionId)
+        if (session) {
+          await sessions.put({ ...session, pinned: flag })
+        }
+        const summaries = tx.objectStore('sessionSummaries')
+        const summary = await summaries.get(sessionId)
+        if (summary) {
+          await summaries.put({ ...summary, pinned: flag })
+        }
+      } catch (error) {
+        abortTransaction(tx)
+        throw error
+      }
+    })(),
+    tx.done,
+  ])
+}
+
 export const loadSession = async (id: string): Promise<Session | undefined> =>
   (await getDB()).get('sessions', id)
+
+/** 全文搜索使用：一次读取全部会话（仅供会话列表搜索） */
+export const loadAllSessions = async (): Promise<Session[]> => (await getDB()).getAll('sessions')
 
 export const saveSession = async (session: Session, files: StoredFile[] = []): Promise<void> => {
   const summary = storedSummary(session)

@@ -13,10 +13,17 @@ export const SessionItem = memo(function SessionItem({
   session,
   active,
   onDelete,
+  selectable = false,
+  selected = false,
+  onToggle,
 }: {
   session: SessionSummary
   active: boolean
   onDelete: () => void
+  /** 多选管理模式下显示选择圈，点击切换选中而非打开 */
+  selectable?: boolean
+  selected?: boolean
+  onToggle?: () => void
 }) {
   const t = useTranslate()
   const [editing, setEditing] = useState(false)
@@ -44,6 +51,20 @@ export const SessionItem = memo(function SessionItem({
           }
         }}
       />
+    )
+  }
+
+  if (selectable) {
+    return (
+      <div
+        className={clsx(styles.item, styles.selectable, selected && styles.selected)}
+        role="option"
+        aria-selected={selected}
+        onClick={onToggle}
+      >
+        <span className={clsx(styles.selector, selected && styles.selectorOn)} />
+        <div className={styles.title}>{displayTitle}</div>
+      </div>
     )
   }
 
