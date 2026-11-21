@@ -246,4 +246,13 @@ export const zh = {
   searchingChats: '正在搜索…',
   searchResultCount: '找到 {count} 个对话',
   pinLimitReached: '最多可置顶 {count} 个对话',
+  settingsModel: '模型',
+  modelDialogTitle: '选择模型',
+  modelLoading: '正在获取模型列表…',
+  modelLoadFailed: '获取模型列表失败，请检查 API Key 或网络后重试',
+  modelNeedKey: '请先在「账号管理」中配置 API Key',
+  modelContext: '上下文 {tokens}',
+  modelImageInput: '支持图片输入',
+  modelTextOnly: '仅文本输入',
+  modelEffort: '思考档位 {levels}',
 } as const

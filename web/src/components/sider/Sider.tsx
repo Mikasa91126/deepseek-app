@@ -16,6 +16,7 @@ import {
 import { setSiderCollapsed, useSettings } from '../../services/settings.js'
 import { useAndroidBack } from '../../services/backStack.js'
 import { usePresence } from '../../hooks/usePresence.js'
+import { useSwipe } from '../../hooks/useSwipe.js'
 import { groupSessions } from '../../services/chat/sessionGroups.js'
 import { newChat, removeSession, setPinned, useChatStore } from '../../services/chat/store.js'
 import { searchSessions } from '../../services/chat/search.js'
@@ -403,6 +404,10 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
 export const MobileSider = () => {
   const open = useMobileSider((state) => state.open)
   const { rendered, closing } = usePresence(open, 200)
+  // 侧栏内向左滑动关闭抽屉
+  const drawerSwipeRef = useSwipe<HTMLDivElement>({
+    onSwipeLeft: closeMobileSider,
+  })
   // 安卓返回键：优先收起抽屉
   useAndroidBack(() => {
     closeMobileSider()
@@ -414,7 +419,7 @@ export const MobileSider = () => {
   return (
     <>
       <div className={clsx(styles.drawerMask, closing && styles.closing)} onClick={closeMobileSider} />
-      <div className={clsx(styles.drawer, closing && styles.closing)}>
+      <div ref={drawerSwipeRef} className={clsx(styles.drawer, closing && styles.closing)}>
         <Sider mobile />
       </div>
     </>

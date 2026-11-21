@@ -13,6 +13,7 @@ import {
 import { setSearch, setThinking, useSettings } from '../../services/settings.js'
 import { useAndroidBack } from '../../services/backStack.js'
 import { usePresence } from '../../hooks/usePresence.js'
+import { useSwipe } from '../../hooks/useSwipe.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
@@ -82,6 +83,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const [recent, setRecent] = useState<RecentImage[]>(readRecentImages)
   const [gallery, setGallery] = useState<AndroidGalleryItem[]>([])
   const { rendered: panelRendered, closing: panelClosing } = usePresence(panelOpen, 160)
+  // 「+」面板向下滑动收起
+  const panelSwipeRef = useSwipe<HTMLDivElement>({
+    onSwipeDown: () => setPanelOpen(false),
+    verticalThreshold: 60,
+  })
 
   // 打开「+」面板时读取系统相册（仅安卓壳）：按拍摄时间从新到旧
   useEffect(() => {
@@ -419,6 +425,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     </div>
       {panelRendered ? (
         <div
+          ref={panelSwipeRef}
           className={clsx(styles.attachPanel, panelClosing && styles.closing)}
           role="dialog"
           aria-label={t('uploadFile')}

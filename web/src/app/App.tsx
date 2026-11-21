@@ -24,8 +24,9 @@ import { onUploadNotice } from '../services/attachments.js'
 import { Button } from '../components/base/Button.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
-import { closeMobileSider } from '../components/sider/mobileSiderState.js'
+import { closeMobileSider, openMobileSider } from '../components/sider/mobileSiderState.js'
 import { MobileSider, Sider } from '../components/sider/Sider.js'
+import { useSwipe } from '../hooks/useSwipe.js'
 import styles from './App.module.css'
 
 export const App = () => {
@@ -57,6 +58,15 @@ export const App = () => {
     state.activeId === null ? false : Object.hasOwn(state.streaming, state.activeId)
   )
   const activeId = useChatStore((state) => state.activeId)
+
+  // 移动端手势：在首页/会话页向右滑动打开侧边栏（侧栏内向左滑动关闭）
+  const mainSwipeRef = useSwipe<HTMLElement>({
+    onSwipeRight: () => {
+      if (isMobile) {
+        openMobileSider()
+      }
+    },
+  })
 
   // 安卓返回键的兜底：处于会话页时回到首页；首页（以及没有其他可返回层级时）交给原生退出应用
   useAndroidBack(() => {
@@ -94,7 +104,7 @@ export const App = () => {
     <>
       <div ref={frameRef} className={styles.frame}>
         {isMobile ? <MobileSider /> : siderCollapsed ? null : <Sider />}
-        <main className={styles.main}>
+        <main ref={mainSwipeRef} className={styles.main}>
           {saveError ? (
             <div className={styles.saveError} role="alert">
               <span>{t('sessionSaveFailed')}</span>

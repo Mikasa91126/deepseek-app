@@ -120,6 +120,32 @@ export const fetchBalance = async (apiKey: string, signal?: AbortSignal): Promis
   return (await response.json()) as BalanceInfo
 }
 
+/** 开放平台模型列表（GET /models） */
+export type ModelInfo = {
+  id: string
+  name?: string
+  context_window?: number
+  max_output_tokens?: number
+  input_modalities?: string[]
+  output_modalities?: string[]
+  effort?: { supported_levels?: string[]; default_level?: string }
+}
+
+export const listModels = async (apiKey: string, signal?: AbortSignal): Promise<ModelInfo[]> => {
+  const response = await request(`${API_ORIGIN}/models`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal,
+  })
+  const body = (await response.json()) as { data?: unknown }
+  return Array.isArray(body.data)
+    ? body.data.filter(
+        (item): item is ModelInfo =>
+          typeof item === 'object' && item !== null && typeof (item as ModelInfo).id === 'string'
+      )
+    : []
+}
+
 /**
  * POST /anthropic/v1/files 上传附件（不设过期时间，会话里的历史附件一直可用）。
  * purpose 为 null 时不传该字段（图片）；purpose 必须排在 file 之前。

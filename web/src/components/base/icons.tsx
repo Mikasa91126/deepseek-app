@@ -764,3 +764,17 @@ export const IconPinOutline16 = () => (
     <path d="M8 8.1v5.5" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
   </svg>
 )
+
+/** 模型（芯片） */
+export const IconModelOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x={3.4} y={3.4} width={9.2} height={9.2} rx={2} stroke="currentColor" strokeWidth={1.2} />
+    <rect x={6.2} y={6.2} width={3.6} height={3.6} rx={1} stroke="currentColor" strokeWidth={1.1} />
+    <path
+      d="M6 3.4V1.8M10 3.4V1.8M6 14.2v-1.6M10 14.2v-1.6M3.4 6H1.8M3.4 10H1.8M14.2 6h-1.6M14.2 10h-1.6"
+      stroke="currentColor"
+      strokeWidth={1.1}
+      strokeLinecap="round"
+    />
+  </svg>
+)

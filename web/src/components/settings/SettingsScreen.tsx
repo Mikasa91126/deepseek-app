@@ -12,6 +12,7 @@ import {
   IconInfoOutline16,
   IconLightOutline16,
   IconLogoutOutline16,
+  IconModelOutline16,
   IconPersonOutline16,
   IconPlayMediaOutline16,
   IconSparkleOutline16,
@@ -30,6 +31,7 @@ import {
   setFontScale,
   setLocale,
   setLocation,
+  setModel,
   setSafetyCheck,
   setThemePreference,
   setTtsVoice,
@@ -37,8 +39,9 @@ import {
   type ThemePreference,
 } from '../../services/settings.js'
 import { getRegionName, provinces, regionCodes } from '../../services/location.js'
-import { fetchBalance } from '../../services/api/client.js'
+import { fetchBalance, listModels, type ModelInfo } from '../../services/api/client.js'
 import { useAndroidBack } from '../../services/backStack.js'
+import { useSwipe } from '../../hooks/useSwipe.js'
 import { useTranslate } from '../../i18n/index.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
@@ -50,7 +53,7 @@ import styles from './SettingsScreen.module.css'
 
 /** 设置页内的二级页面；接口兼容旧调用方：'data' 表示打开账号页（含 API Key 输入） */
 type Page = 'root' | 'account' | 'data' | 'font' | 'personalize'
-type Dialog = 'appearance' | 'language' | 'voice' | null
+type Dialog = 'appearance' | 'language' | 'voice' | 'model' | null
 
 const HELP_URL = 'https://api-docs.deepseek.com/zh-cn/guides/build_a_chatbot'
 const TERMS_URL = 'https://platform.deepseek.com'
@@ -401,6 +404,7 @@ export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
   const themePreference = useSettings((state) => state.themePreference)
   const locale = useSettings((state) => state.locale)
   const ttsVoice = useSettings((state) => state.ttsVoice)
+  const selectedModel = useSettings((state) => state.model)
   const version =
     document.querySelector('meta[name="application-version"]')?.getAttribute('content') ?? '0.1.3'
 
@@ -440,12 +444,16 @@ export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
     return true
   })
 
+  // 设置页向右滑动返回上一级
+  const pageSwipeRef = useSwipe<HTMLDivElement>({ onSwipeRight: goBack })
+
   return (
     <div
       className={styles.overlay}
       onMouseDown={(event) => event.target === event.currentTarget && closeSettings()}
     >
       <div
+        ref={pageSwipeRef}
         className={clsx(styles.page, closing && styles.closing)}
         role="dialog"
         aria-modal="true"
@@ -491,6 +499,12 @@ export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
                   label={t('settingsLocalePreference')}
                   value={locale === 'zh-CN' ? t('settingsLocaleZhCN') : t('settingsLocaleEnUS')}
                   onClick={() => setDialog('language')}
+                />
+                <Row
+                  icon={<IconModelOutline16 />}
+                  label={t('settingsModel')}
+                  value={selectedModel ?? 'deepseek-flash'}
+                  onClick={() => setDialog('model')}
                 />
                 <Row
                   icon={<IconFontSizeOutline16 />}
@@ -582,6 +596,13 @@ export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
       ) : null}
       {dialog === 'voice' ? (
         <VoiceDialog value={ttsVoice} onConfirm={(value) => setTtsVoice(value)} onClose={() => setDialog(null)} />
+      ) : null}
+      {dialog === 'model' ? (
+        <ModelDialog
+          value={selectedModel}
+          onConfirm={(model) => setModel(model)}
+          onClose={() => setDialog(null)}
+        />
       ) : null}
     </div>
   )
@@ -744,6 +765,11 @@ const VoiceDialog = ({
     setClosing(true)
     window.setTimeout(onClose, 200)
   }
+  // 音色弹层向下滑动关闭
+  const sheetSwipeRef = useSwipe<HTMLDivElement>({
+    onSwipeDown: requestClose,
+    verticalThreshold: 70,
+  })
   useAndroidBack(() => {
     requestClose()
     return true
@@ -761,6 +787,7 @@ const VoiceDialog = ({
       onMouseDown={(event) => event.target === event.currentTarget && requestClose()}
     >
       <div
+        ref={sheetSwipeRef}
         className={styles.sheet}
         role="dialog"
         aria-modal="true"
@@ -819,6 +846,131 @@ const VoiceDialog = ({
         </Button>
       </div>
     </div>
+  )
+}
+
+/** 上下文长度缩写：1M / 128K 等 */
+const formatTokens = (tokens?: number): string | null => {
+  if (tokens === undefined) {
+    return null
+  }
+  if (tokens >= 1024 * 1024) {
+    const value = tokens / (1024 * 1024)
+    return `${Number.isInteger(value) ? value : value.toFixed(1)}M`
+  }
+  if (tokens >= 1024) {
+    return `${Math.round(tokens / 1024)}K`
+  }
+  return String(tokens)
+}
+
+/** 模型选择：从开放平台 /models 拉取，展示名称、上下文、模态与思考档位 */
+const ModelDialog = ({
+  value,
+  onConfirm,
+  onClose,
+}: {
+  value: string | null
+  onConfirm: (model: string) => void
+  onClose: () => void
+}) => {
+  const t = useTranslate()
+  const apiKey = useSettings((state) => state.apiKey)
+  const [models, setModels] = useState<ModelInfo[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [draft, setDraft] = useState(value ?? 'deepseek-flash')
+
+  const load = () => {
+    if (!apiKey) {
+      return
+    }
+    setFailed(false)
+    setModels(null)
+    void listModels(apiKey)
+      .then((list) => {
+        setModels(list)
+        if (list.length > 0 && !list.some((model) => model.id === draft)) {
+          setDraft(list[0].id)
+        }
+      })
+      .catch((error) => {
+        console.error('list models failed', error)
+        setFailed(true)
+      })
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey])
+
+  const ready = models !== null && models.length > 0
+  return (
+    <Modal
+      title={t('modelDialogTitle')}
+      onClose={onClose}
+      footer={
+        <button
+          type="button"
+          className={styles.dialogConfirmText}
+          disabled={!ready}
+          onClick={() => {
+            if (ready) {
+              onConfirm(draft)
+              onClose()
+            }
+          }}
+        >
+          {t('dialogConfirm')}
+        </button>
+      }
+    >
+      {!apiKey ? (
+        <div className={styles.modelHint}>{t('modelNeedKey')}</div>
+      ) : failed ? (
+        <div className={styles.modelHint}>
+          {t('modelLoadFailed')}
+          <button type="button" className={styles.retryLink} onClick={load}>
+            {t('retry')}
+          </button>
+        </div>
+      ) : models === null ? (
+        <div className={styles.modelHint}>{t('modelLoading')}</div>
+      ) : models.length === 0 ? (
+        <div className={styles.modelHint}>{t('modelLoadFailed')}</div>
+      ) : (
+        <div className={styles.options} role="radiogroup" aria-label={t('modelDialogTitle')}>
+          {models.map((model) => {
+            const context = formatTokens(model.context_window)
+            const image = model.input_modalities?.includes('image')
+            const levels = model.effort?.supported_levels
+            const meta = [
+              context ? t('modelContext', { tokens: context }) : null,
+              model.input_modalities ? (image ? t('modelImageInput') : t('modelTextOnly')) : null,
+              levels && levels.length > 0 ? t('modelEffort', { levels: levels.join(' / ') }) : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')
+            return (
+              <label key={model.id} className={styles.option}>
+                <input
+                  type="radio"
+                  name="model"
+                  checked={draft === model.id}
+                  onChange={() => setDraft(model.id)}
+                />
+                <span className={styles.radioMark} />
+                <span className={styles.modelLabel}>
+                  <span className={styles.modelName}>{model.name || model.id}</span>
+                  <span className={styles.modelMeta}>{model.id}</span>
+                  {meta ? <span className={styles.modelMeta}>{meta}</span> : null}
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+    </Modal>
   )
 }
 

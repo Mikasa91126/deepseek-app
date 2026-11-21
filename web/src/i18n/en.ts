@@ -260,4 +260,13 @@ export const en = {
   searchingChats: 'Searching...',
   searchResultCount: '{count} chats found',
   pinLimitReached: 'You can pin up to {count} chats',
+  settingsModel: 'Model',
+  modelDialogTitle: 'Choose a model',
+  modelLoading: 'Loading models...',
+  modelLoadFailed: 'Failed to load models. Check the API Key or network and try again.',
+  modelNeedKey: 'Configure an API Key in Account first',
+  modelContext: 'Context {tokens}',
+  modelImageInput: 'Image input',
+  modelTextOnly: 'Text only',
+  modelEffort: 'Effort {levels}',
 } satisfies Record<keyof typeof zh, string>

@@ -18,6 +18,8 @@ type Settings = {
   search: boolean
   /** 与官方 App 一致的服务端内容安全审核；个人自用默认关闭 */
   safetyCheck: boolean
+  /** 选择的模型 ID；null 表示使用默认的 deepseek-flash */
+  model: string | null
   /** 思考结束后自动折叠思考内容（与官方 App 默认一致） */
   autoCollapseThinking: boolean
   /** 回答结束自动朗读 */
@@ -38,6 +40,7 @@ const KEYS = {
   thinking: 'chat-demo:thinking',
   search: 'chat-demo:search',
   safetyCheck: 'chat-demo:safety-check',
+  model: 'chat-demo:model',
   autoCollapseThinking: 'chat-demo:auto-collapse-thinking',
   autoReadAloud: 'chat-demo:auto-read-aloud',
   fontScale: 'chat-demo:font-scale',
@@ -120,6 +123,7 @@ export const useSettings = create<Settings>(() => ({
   thinking: read(KEYS.thinking) === 'true',
   search: read(KEYS.search) === 'true',
   safetyCheck: read(KEYS.safetyCheck) === 'true',
+  model: read(KEYS.model),
   autoCollapseThinking: read(KEYS.autoCollapseThinking) !== 'false',
   autoReadAloud: read(KEYS.autoReadAloud) === 'true',
   fontScale: initialFontScale(),
@@ -166,6 +170,11 @@ export const setSearch = (search: boolean) => {
 export const setSafetyCheck = (safetyCheck: boolean) => {
   write(KEYS.safetyCheck, String(safetyCheck))
   useSettings.setState({ safetyCheck })
+}
+
+export const setModel = (model: string | null) => {
+  write(KEYS.model, model || null)
+  useSettings.setState({ model: model || null })
 }
 
 export const setAutoCollapseThinking = (autoCollapseThinking: boolean) => {

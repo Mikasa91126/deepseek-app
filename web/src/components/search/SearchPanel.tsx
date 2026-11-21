@@ -1,5 +1,6 @@
 import { useTranslate } from '../../i18n/index.js'
 import { useAndroidBack } from '../../services/backStack.js'
+import { useSwipe } from '../../hooks/useSwipe.js'
 import { IconCloseOutline16 } from '../base/icons.js'
 import { IconButton } from '../base/IconButton.js'
 import { closeSearchPanel, useSearchPanel } from './searchPanelState.js'
@@ -16,11 +17,13 @@ export const SearchPanel = () => {
     closeSearchPanel()
     return true
   }, entry !== null)
+  // 移动端向右滑动关闭面板
+  const panelSwipeRef = useSwipe<HTMLElement>({ onSwipeRight: closeSearchPanel })
   if (!entry) {
     return null
   }
   return (
-    <aside className={styles.panel}>
+    <aside ref={panelSwipeRef} className={styles.panel}>
       <div className={styles.header}>
         <div role="heading" className={styles.title}>
           {t('searchResult')}
