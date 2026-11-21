@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslate } from '../i18n/index.js'
 import { applyFontScale, useSettings } from '../services/settings.js'
 import { useIsMobile, useMobileViewport, usePreventPageScroll } from './viewport.js'
@@ -24,9 +24,8 @@ import { onUploadNotice } from '../services/attachments.js'
 import { Button } from '../components/base/Button.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
-import { closeMobileSider, openMobileSider } from '../components/sider/mobileSiderState.js'
+import { closeMobileSider, openMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
 import { MobileSider, Sider } from '../components/sider/Sider.js'
-import { useSwipe } from '../hooks/useSwipe.js'
 import styles from './App.module.css'
 
 export const App = () => {
@@ -59,14 +58,115 @@ export const App = () => {
   )
   const activeId = useChatStore((state) => state.activeId)
 
-  // 移动端手势：在首页/会话页向右滑动打开侧边栏（侧栏内向左滑动关闭）
-  const mainSwipeRef = useSwipe<HTMLElement>({
-    onSwipeRight: () => {
-      if (isMobile) {
+  // 移动端侧栏跟手滑动：拖动时主界面随手指右移并压暗，松手按进度吸附
+  const siderOpen = useMobileSider((state) => state.open)
+  const [siderDragging, setSiderDragging] = useState(false)
+  const siderDraggingRef = useRef(false)
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame || !isMobile) {
+      return
+    }
+    const drawerWidth = () => Math.min(340, window.innerWidth - 48)
+    let mode: 'open' | 'close' | null = null
+    let startX = 0
+    let startY = 0
+    let horizontal = false
+    const setProgress = (progress: number, animate: boolean) => {
+      frame.style.setProperty('--sider-transition', animate ? '220ms' : '0ms')
+      frame.style.setProperty('--sider-progress', String(progress))
+    }
+    const settle = (target: number) => {
+      setProgress(target, true)
+      if (target === 1) {
         openMobileSider()
+      } else {
+        closeMobileSider()
       }
-    },
-  })
+      siderDraggingRef.current = false
+      setSiderDragging(false)
+      mode = null
+    }
+    const onStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        return
+      }
+      const touch = event.touches[0]
+      const currentlyOpen = useMobileSider.getState().open
+      if (currentlyOpen) {
+        mode = 'close'
+      } else if (touch.clientX <= 48) {
+        mode = 'open'
+      } else {
+        return
+      }
+      startX = touch.clientX
+      startY = touch.clientY
+      horizontal = false
+      siderDraggingRef.current = true
+      setSiderDragging(true)
+      setProgress(currentlyOpen ? 1 : 0, false)
+    }
+    const onMove = (event: TouchEvent) => {
+      if (!siderDraggingRef.current || !mode) {
+        return
+      }
+      const touch = event.touches[0]
+      if (!touch) {
+        return
+      }
+      const dx = touch.clientX - startX
+      const dy = touch.clientY - startY
+      if (!horizontal) {
+        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+          // 纵向滚动优先：取消本次手势并回到原状态
+          settle(mode === 'close' ? 1 : 0)
+          return
+        }
+        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.1) {
+          horizontal = true
+        } else {
+          return
+        }
+      }
+      const width = drawerWidth()
+      const raw = mode === 'open' ? dx / width : 1 + dx / width
+      setProgress(Math.max(0, Math.min(1, raw)), false)
+    }
+    const onEnd = () => {
+      if (!siderDraggingRef.current || !mode) {
+        return
+      }
+      const current = Number.parseFloat(
+        frame.style.getPropertyValue('--sider-progress') || '0'
+      )
+      settle(current > 0.3 ? 1 : 0)
+    }
+    frame.addEventListener('touchstart', onStart, { passive: true })
+    frame.addEventListener('touchmove', onMove, { passive: true })
+    frame.addEventListener('touchend', onEnd, { passive: true })
+    frame.addEventListener('touchcancel', onEnd, { passive: true })
+    return () => {
+      frame.removeEventListener('touchstart', onStart)
+      frame.removeEventListener('touchmove', onMove)
+      frame.removeEventListener('touchend', onEnd)
+      frame.removeEventListener('touchcancel', onEnd)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile])
+  // 非拖动状态下由 store 驱动进度（打开/关闭按钮、返回键、选择会话等）
+  useEffect(() => {
+    if (siderDragging) {
+      return
+    }
+    const frame = frameRef.current
+    if (!frame) {
+      return
+    }
+    frame.style.setProperty('--sider-transition', '220ms')
+    frame.style.setProperty('--sider-progress', siderOpen ? '1' : '0')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siderOpen, siderDragging])
 
   // 安卓返回键的兜底：处于会话页时回到首页；首页（以及没有其他可返回层级时）交给原生退出应用
   useAndroidBack(() => {
@@ -103,8 +203,8 @@ export const App = () => {
   return (
     <>
       <div ref={frameRef} className={styles.frame}>
-        {isMobile ? <MobileSider /> : siderCollapsed ? null : <Sider />}
-        <main ref={mainSwipeRef} className={styles.main}>
+        {isMobile ? <MobileSider active={siderOpen || siderDragging} /> : siderCollapsed ? null : <Sider />}
+        <main className={styles.main}>
           {saveError ? (
             <div className={styles.saveError} role="alert">
               <span>{t('sessionSaveFailed')}</span>

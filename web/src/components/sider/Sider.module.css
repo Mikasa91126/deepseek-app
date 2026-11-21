@@ -198,60 +198,25 @@
   bottom: 0;
   left: 0;
   z-index: 800;
-  animation: drawerIn var(--app-motion-base, 220ms) var(--app-ease-out, ease-out) both;
-
-  &.closing {
-    animation: drawerOut 200ms ease both;
-  }
+  /* 随 App 设置的 --sider-progress（0~1）从左侧滑入/滑出，跟手拖动时无过渡 */
+  transform: translate3d(
+    calc((var(--sider-progress, 0) - 1) * min(340px, calc(100vw - 48px))),
+    0,
+    0
+  );
+  transition: transform var(--sider-transition, 220ms) var(--app-ease-out, ease-out);
+  will-change: transform;
 }
 
 .drawerMask {
   position: absolute;
   inset: 0;
   z-index: 799;
-  animation: maskIn var(--app-motion-base, 220ms) ease both;
-
-  &.closing {
-    animation: maskOut 200ms ease both;
-  }
-}
-
-@keyframes drawerIn {
-  from {
-    transform: translateX(-32px);
-    opacity: 0;
-  }
-}
-
-@keyframes drawerOut {
-  to {
-    transform: translateX(-32px);
-    opacity: 0;
-  }
-}
-
-@keyframes maskIn {
-  from {
-    background-color: rgba(0, 0, 0, 0);
-  }
-
-  to {
-    background-color: rgba(0, 0, 0, 0.16);
-  }
-}
-
-@keyframes maskOut {
-  from {
-    background-color: rgba(0, 0, 0, 0.16);
-  }
-
-  to {
-    background-color: rgba(0, 0, 0, 0);
-  }
+  background-color: transparent;
 }
 
 .mobile {
-  width: 300px;
+  width: 340px;
   max-width: calc(100vw - 48px);
   padding-top: 10px;
 

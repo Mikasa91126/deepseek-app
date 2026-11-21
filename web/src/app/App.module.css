@@ -62,4 +62,32 @@
     /* 全屏安装时避开刘海与状态栏 */
     padding-top: env(safe-area-inset-top);
   }
+
+  /* 侧栏跟手滑动：主界面右移、左侧圆角，并随进度压暗 */
+  .main {
+    transform: translate3d(
+      calc(var(--sider-progress, 0) * min(340px, calc(100vw - 48px))),
+      0,
+      0
+    );
+    border-top-left-radius: calc(var(--sider-progress, 0) * 18px);
+    border-bottom-left-radius: calc(var(--sider-progress, 0) * 18px);
+    transition:
+      transform var(--sider-transition, 220ms) var(--app-ease-out, ease-out),
+      border-radius var(--sider-transition, 220ms) var(--app-ease-out, ease-out);
+    overflow: hidden;
+    background-color: var(--dsw-alias-bg-base);
+    will-change: transform;
+  }
+
+  .main::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    background-color: rgba(0, 0, 0, 0.32);
+    opacity: var(--sider-progress, 0);
+    transition: opacity var(--sider-transition, 220ms) var(--app-ease-out, ease-out);
+    pointer-events: none;
+  }
 }

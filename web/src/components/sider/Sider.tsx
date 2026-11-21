@@ -16,7 +16,6 @@ import {
 import { setSiderCollapsed, useSettings } from '../../services/settings.js'
 import { useAndroidBack } from '../../services/backStack.js'
 import { usePresence } from '../../hooks/usePresence.js'
-import { useSwipe } from '../../hooks/useSwipe.js'
 import { groupSessions } from '../../services/chat/sessionGroups.js'
 import { newChat, removeSession, setPinned, useChatStore } from '../../services/chat/store.js'
 import { searchSessions } from '../../services/chat/search.js'
@@ -26,7 +25,7 @@ import { IconButton } from '../base/IconButton.js'
 import { Modal } from '../base/Modal.js'
 import { showToast } from '../base/toastState.js'
 import { openSettings } from '../settings/settingsDialogState.js'
-import { closeMobileSider, useMobileSider } from './mobileSiderState.js'
+import { closeMobileSider } from './mobileSiderState.js'
 import { SessionItem } from './SessionItem.js'
 import styles from './Sider.module.css'
 
@@ -400,26 +399,21 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   )
 }
 
-/** 移动端抽屉：浮在页面上方，点空白区域关闭。 */
-export const MobileSider = () => {
-  const open = useMobileSider((state) => state.open)
-  const { rendered, closing } = usePresence(open, 200)
-  // 侧栏内向左滑动关闭抽屉
-  const drawerSwipeRef = useSwipe<HTMLDivElement>({
-    onSwipeLeft: closeMobileSider,
-  })
+/** 移动端抽屉：浮在页面上方，点空白区域关闭；位移由 App 的跟手进度驱动 */
+export const MobileSider = ({ active }: { active: boolean }) => {
+  const { rendered } = usePresence(active, 240)
   // 安卓返回键：优先收起抽屉
   useAndroidBack(() => {
     closeMobileSider()
     return true
-  }, open)
+  }, active)
   if (!rendered) {
     return null
   }
   return (
     <>
-      <div className={clsx(styles.drawerMask, closing && styles.closing)} onClick={closeMobileSider} />
-      <div ref={drawerSwipeRef} className={clsx(styles.drawer, closing && styles.closing)}>
+      <div className={styles.drawerMask} onClick={closeMobileSider} />
+      <div className={styles.drawer}>
         <Sider mobile />
       </div>
     </>
