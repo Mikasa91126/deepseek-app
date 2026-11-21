@@ -11,8 +11,8 @@ android {
         minSdk = 26
         // targetSdk 34：避免 Android 15 强制边到边导致 WebView 顶栏压到状态栏
         targetSdk = 34
-        versionCode = 7
-        versionName = "0.1.7"
+        versionCode = 8
+        versionName = "0.1.8"
     }
 
     buildTypes {

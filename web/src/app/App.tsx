@@ -71,86 +71,154 @@ export const App = () => {
     let mode: 'open' | 'close' | null = null
     let startX = 0
     let startY = 0
-    let horizontal = false
-    const setProgress = (progress: number, animate: boolean) => {
+    let lastX = 0
+    let pending = false
+    let active = false
+    let progress = 0
+    let raf = 0
+    let suppressClickUntil = 0
+
+    const isHorizontalScroller = (target: EventTarget | null) => {
+      let node: Element | null = target instanceof Element ? target : null
+      while (node && node !== frame) {
+        const style = getComputedStyle(node)
+        if (
+          /auto|scroll/.test(style.overflowX) &&
+          (node as HTMLElement).scrollWidth > (node as HTMLElement).clientWidth
+        ) {
+          return true
+        }
+        node = node.parentElement
+      }
+      return false
+    }
+    const setProgress = (value: number, animate: boolean) => {
+      progress = value
       frame.style.setProperty('--sider-transition', animate ? '220ms' : '0ms')
-      frame.style.setProperty('--sider-progress', String(progress))
+      frame.style.setProperty('--sider-progress', String(value))
     }
     const settle = (target: number) => {
       setProgress(target, true)
-      if (target === 1) {
+      if (target >= 1) {
         openMobileSider()
       } else {
         closeMobileSider()
       }
+      active = false
+      pending = false
+      mode = null
       siderDraggingRef.current = false
       setSiderDragging(false)
-      mode = null
+    }
+    const applyProgress = () => {
+      raf = 0
+      if (!active || !mode) {
+        return
+      }
+      const dx = lastX - startX
+      const width = drawerWidth()
+      const raw = mode === 'open' ? dx / width : 1 + dx / width
+      setProgress(Math.max(0, Math.min(1, raw)), false)
     }
     const onStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) {
+        pending = false
         return
       }
-      const touch = event.touches[0]
-      const currentlyOpen = useMobileSider.getState().open
-      if (currentlyOpen) {
-        mode = 'close'
-      } else if (touch.clientX <= 48) {
-        mode = 'open'
-      } else {
+      const target = event.target
+      // 搜索结果面板、横向滚动区域（相册条/代码块）不参与侧栏手势
+      if (target instanceof Element && target.closest('aside')) {
+        pending = false
         return
       }
-      startX = touch.clientX
-      startY = touch.clientY
-      horizontal = false
-      siderDraggingRef.current = true
-      setSiderDragging(true)
-      setProgress(currentlyOpen ? 1 : 0, false)
+      if (isHorizontalScroller(target)) {
+        pending = false
+        return
+      }
+      mode = useMobileSider.getState().open ? 'close' : 'open'
+      startX = event.touches[0].clientX
+      startY = event.touches[0].clientY
+      lastX = startX
+      pending = true
+      active = false
     }
     const onMove = (event: TouchEvent) => {
-      if (!siderDraggingRef.current || !mode) {
+      if (!pending) {
         return
       }
       const touch = event.touches[0]
       if (!touch) {
         return
       }
-      const dx = touch.clientX - startX
+      lastX = touch.clientX
+      const dx = lastX - startX
       const dy = touch.clientY - startY
-      if (!horizontal) {
-        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
-          // 纵向滚动优先：取消本次手势并回到原状态
-          settle(mode === 'close' ? 1 : 0)
+      if (!active) {
+        if (Math.abs(dy) > 12 && Math.abs(dy) >= Math.abs(dx)) {
+          // 纵向滚动优先，放弃本次手势（不挂载遮罩，点按与滚动都不受影响）
+          pending = false
           return
         }
-        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.1) {
-          horizontal = true
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.1) {
+          active = true
+          siderDraggingRef.current = true
+          setSiderDragging(true)
+          setProgress(mode === 'close' ? 1 : 0, false)
         } else {
           return
         }
       }
-      const width = drawerWidth()
-      const raw = mode === 'open' ? dx / width : 1 + dx / width
-      setProgress(Math.max(0, Math.min(1, raw)), false)
+      if (event.cancelable) {
+        // 进入横向拖拽后阻止文本选择与页面滚动
+        event.preventDefault()
+      }
+      if (!raf) {
+        raf = requestAnimationFrame(applyProgress)
+      }
     }
     const onEnd = () => {
-      if (!siderDraggingRef.current || !mode) {
-        return
+      if (raf) {
+        cancelAnimationFrame(raf)
+        raf = 0
       }
-      const current = Number.parseFloat(
-        frame.style.getPropertyValue('--sider-progress') || '0'
-      )
-      settle(current > 0.3 ? 1 : 0)
+      if (active) {
+        applyProgress()
+        suppressClickUntil = Date.now() + 300
+        // 打开方向：拖过 30% 吸附打开；关闭方向：向左拖过 30% 即收起
+        const target = mode === 'open' ? (progress > 0.3 ? 1 : 0) : progress < 0.7 ? 0 : 1
+        settle(target)
+      }
+      pending = false
+      active = false
+    }
+    const onCancel = () => {
+      if (raf) {
+        cancelAnimationFrame(raf)
+        raf = 0
+      }
+      if (active) {
+        settle(mode === 'close' ? 1 : 0)
+      }
+      pending = false
+      active = false
+    }
+    const onClickCapture = (event: MouseEvent) => {
+      if (Date.now() < suppressClickUntil) {
+        event.stopPropagation()
+        event.preventDefault()
+      }
     }
     frame.addEventListener('touchstart', onStart, { passive: true })
-    frame.addEventListener('touchmove', onMove, { passive: true })
+    frame.addEventListener('touchmove', onMove, { passive: false })
     frame.addEventListener('touchend', onEnd, { passive: true })
-    frame.addEventListener('touchcancel', onEnd, { passive: true })
+    frame.addEventListener('touchcancel', onCancel, { passive: true })
+    document.addEventListener('click', onClickCapture, true)
     return () => {
       frame.removeEventListener('touchstart', onStart)
       frame.removeEventListener('touchmove', onMove)
       frame.removeEventListener('touchend', onEnd)
-      frame.removeEventListener('touchcancel', onEnd)
+      frame.removeEventListener('touchcancel', onCancel)
+      document.removeEventListener('click', onClickCapture, true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile])

@@ -5,12 +5,42 @@ export type Theme = 'light' | 'dark'
 
 const query = window.matchMedia('(prefers-color-scheme: dark)')
 
-const subscribeOsTheme = (listener: () => void) => {
-  query.addEventListener('change', listener)
-  return () => query.removeEventListener('change', listener)
+type NativeThemeBridge = { isSystemDark?: () => boolean }
+const getNativeBridge = () =>
+  (window as unknown as { AndroidBridge?: NativeThemeBridge }).AndroidBridge
+
+/**
+ * 安卓 WebView 的 prefers-color-scheme 取自应用主题而非系统设置，
+ * 应用主题为 Light 时会永远返回浅色。壳里通过 isSystemDark() 读取
+ * 系统 uiMode，并在系统深浅色切换时回调 __onNativeThemeChanged。
+ */
+const osThemeListeners = new Set<() => void>()
+const notifyOsTheme = () => {
+  for (const listener of osThemeListeners) {
+    listener()
+  }
 }
 
-const getOsTheme = (): Theme => (query.matches ? 'dark' : 'light')
+const subscribeOsTheme = (listener: () => void) => {
+  osThemeListeners.add(listener)
+  query.addEventListener('change', listener)
+  return () => {
+    osThemeListeners.delete(listener)
+    query.removeEventListener('change', listener)
+  }
+}
+
+const getOsTheme = (): Theme => {
+  try {
+    const bridge = getNativeBridge()
+    if (bridge?.isSystemDark) {
+      return bridge.isSystemDark() ? 'dark' : 'light'
+    }
+  } catch {
+    // 桥接不可用时退回 media query
+  }
+  return query.matches ? 'dark' : 'light'
+}
 
 const resolveTheme = (preference: ThemePreference, osTheme: Theme): Theme =>
   preference === 'system' ? osTheme : preference
@@ -67,5 +97,11 @@ export const setupTheme = () => {
     window.addEventListener('load', syncPageBackground, { once: true })
   }
   query.addEventListener('change', syncTheme)
+  // 安卓壳在系统深浅色切换（含回到应用）时通知网页重新取色
+  const host = window as unknown as { __onNativeThemeChanged?: () => void }
+  host.__onNativeThemeChanged = () => {
+    notifyOsTheme()
+    syncTheme()
+  }
   useSettings.subscribe(syncTheme)
 }

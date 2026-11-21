@@ -8,8 +8,10 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,7 +19,9 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
+import android.util.LruCache;
 import android.util.Size;
+import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -59,6 +63,8 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> filePathCallback;
     private Uri pendingCameraUri;
     private PermissionRequest pendingAudioRequest;
+    /** 相册缩略图缓存：避免每次打开「+」面板都重新解码 */
+    private final LruCache<String, String> thumbCache = new LruCache<>(80);
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -84,7 +90,44 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new Bridge(), "AndroidBridge");
 
         setContentView(webView);
+        applySystemBars();
+        webView.setBackgroundColor(isSystemDark() ? Color.BLACK : Color.WHITE);
         webView.loadUrl("https://" + ASSET_HOST + "/index.html");
+    }
+
+    /** 系统是否处于深色模式（WebView 的 prefers-color-scheme 不可靠，网页通过桥接读取） */
+    private boolean isSystemDark() {
+        return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    /** 状态栏 / 导航栏图标随系统深浅色切换 */
+    private void applySystemBars() {
+        boolean dark = isSystemDark();
+        int background = dark ? Color.BLACK : Color.WHITE;
+        getWindow().setStatusBarColor(background);
+        getWindow().setNavigationBarColor(background);
+        View decor = getWindow().getDecorView();
+        int flags = decor.getSystemUiVisibility();
+        if (dark) {
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        } else {
+            flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        decor.setSystemUiVisibility(flags);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        applySystemBars();
+        if (webView != null) {
+            webView.setBackgroundColor(isSystemDark() ? Color.BLACK : Color.WHITE);
+            webView.evaluateJavascript(
+                    "window.__onNativeThemeChanged && window.__onNativeThemeChanged()", null);
+        }
     }
 
     /** 从 assets/www 以 https 来源提供页面与静态资源 */
@@ -464,9 +507,31 @@ public class MainActivity extends Activity {
             }
         }
 
-        /** 系统相册最近图片：按拍摄时间从新到旧，返回 [{id, name, dataUrl}]（缩略图 base64） */
+        /** 系统相册最近图片（同步版本，保留兼容），返回 [{id, name, dataUrl}]（缩略图 base64） */
         @JavascriptInterface
         public String listRecentImages(int limit) {
+            return buildRecentImages(limit);
+        }
+
+        /** 异步版本：缩略图解码放到工作线程，完成后回调网页，打开「+」面板不会被阻塞 */
+        @JavascriptInterface
+        public void listRecentImagesAsync(int limit) {
+            new Thread(() -> {
+                String json = buildRecentImages(limit);
+                runOnUiThread(() -> webView.evaluateJavascript(
+                        "window.__onNativeGalleryReady && window.__onNativeGalleryReady("
+                                + JSONObject.quote(json) + ")",
+                        null));
+            }).start();
+        }
+
+        /** 系统是否深色模式：网页「跟随系统」主题通过它取色 */
+        @JavascriptInterface
+        public boolean isSystemDark() {
+            return MainActivity.this.isSystemDark();
+        }
+
+        private String buildRecentImages(int limit) {
             if (!hasGalleryPermission()) {
                 requestGalleryPermission();
                 return "[]";
@@ -590,12 +655,20 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> requestPermissions(permissions, REQ_MEDIA_IMAGES));
     }
 
-    /** 系统相册缩略图（JPEG base64），失败时返回 null 由调用方跳过该条 */
+    /** 系统相册缩略图（JPEG base64）：按 96dp 卡片的真实像素生成并缓存，失败返回 null */
     private String thumbnailDataUrl(Uri uri, long id) {
+        String cacheKey = uri.toString();
+        String cached = thumbCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
         Bitmap bitmap = null;
         try {
+            // 96dp 卡片在 2x/3x 屏上需要 192~288px，过小会在高分屏发糊
+            float density = getResources().getDisplayMetrics().density;
+            int px = Math.max(192, Math.min(320, Math.round(96 * density)));
             if (Build.VERSION.SDK_INT >= 29) {
-                bitmap = getContentResolver().loadThumbnail(uri, new Size(192, 192), null);
+                bitmap = getContentResolver().loadThumbnail(uri, new Size(px, px), null);
             } else {
                 bitmap = MediaStore.Images.Thumbnails.getThumbnail(
                         getContentResolver(), id, MediaStore.Images.Thumbnails.MINI_KIND, null);
@@ -604,9 +677,11 @@ public class MainActivity extends Activity {
                 return null;
             }
             ByteArrayOutputStream output = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, output);
-            return "data:image/jpeg;base64,"
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 84, output);
+            String dataUrl = "data:image/jpeg;base64,"
                     + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
+            thumbCache.put(cacheKey, dataUrl);
+            return dataUrl;
         } catch (Exception e) {
             return null;
         } finally {

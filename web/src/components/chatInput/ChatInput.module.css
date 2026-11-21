@@ -13,24 +13,25 @@
   width: 100%;
   margin-top: 10px;
   padding: 10px 2px 6px;
-  animation: panelIn 180ms var(--app-ease-spring, ease-out) both;
+  animation: panelIn 200ms var(--app-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  will-change: transform, opacity;
 
   &.closing {
-    animation: panelOut 140ms ease both;
+    animation: panelOut 150ms ease both;
   }
 }
 
 @keyframes panelIn {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translate3d(0, 18px, 0);
   }
 }
 
 @keyframes panelOut {
   to {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translate3d(0, 10px, 0);
   }
 }
 
@@ -76,6 +77,38 @@
 
   &:active {
     transform: scale(0.96);
+  }
+}
+
+/* 相册缩略图异步加载时的占位，保持照片条高度避免面板跳动 */
+.recentSkeleton {
+  flex-shrink: 0;
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  background: linear-gradient(
+    100deg,
+    var(--dsw-alias-bg-skeleton) 30%,
+    var(--dsw-alias-interactive-bg-hover) 50%,
+    var(--dsw-alias-bg-skeleton) 70%
+  );
+  background-size: 220% 100%;
+  animation: skeletonShimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  from {
+    background-position: 160% 0;
+  }
+
+  to {
+    background-position: -60% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recentSkeleton {
+    animation: none;
   }
 }
 
@@ -445,6 +478,19 @@
   border-radius: 50%;
   border: 1px solid var(--dsw-alias-border-l2);
   background-color: var(--dsw-alias-bg-layer-2);
+}
+
+/* 面板打开时加号旋转 45° 变成 ×，与官方 App 一致 */
+.plusGlyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(0deg);
+  transition: transform 240ms var(--app-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.plusGlyphOpen {
+  transform: rotate(45deg);
 }
 
 .sendButton {

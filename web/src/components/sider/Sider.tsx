@@ -401,6 +401,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
 
 /** 移动端抽屉：浮在页面上方，点空白区域关闭；位移由 App 的跟手进度驱动 */
 export const MobileSider = ({ active }: { active: boolean }) => {
+  const t = useTranslate()
   const { rendered } = usePresence(active, 240)
   // 安卓返回键：优先收起抽屉
   useAndroidBack(() => {
@@ -413,6 +414,13 @@ export const MobileSider = ({ active }: { active: boolean }) => {
   return (
     <>
       <div className={styles.drawerMask} onClick={closeMobileSider} />
+      {/* 抽屉右侧露出的主页面区域：点一下即按关闭动画滑回主页面（等效于向左滑） */}
+      <button
+        type="button"
+        className={styles.drawerCloseStrip}
+        aria-label={t('close')}
+        onClick={closeMobileSider}
+      />
       <div className={styles.drawer}>
         <Sider mobile />
       </div>

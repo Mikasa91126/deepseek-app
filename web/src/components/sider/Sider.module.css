@@ -215,6 +215,21 @@
   background-color: transparent;
 }
 
+/* 抽屉右侧露出的主页面区域：点按关闭，位置与抽屉宽度保持一致 */
+.drawerCloseStrip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: min(340px, calc(100vw - 48px));
+  right: 0;
+  z-index: 801;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .mobile {
   width: 340px;
   max-width: calc(100vw - 48px);

@@ -51,7 +51,9 @@ type AndroidGalleryItem = { id: string; name: string; dataUrl: string }
 type AndroidBridge = {
   pickZip?: () => boolean
   listRecentImages?: (limit: number) => string
+  listRecentImagesAsync?: (limit: number) => void
   pickGalleryImage?: (id: string) => boolean
+  isSystemDark?: () => boolean
 }
 const getAndroidBridge = () => (window as unknown as { AndroidBridge?: AndroidBridge }).AndroidBridge
 
@@ -82,6 +84,10 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const [panelOpen, setPanelOpen] = useState(false)
   const [recent, setRecent] = useState<RecentImage[]>(readRecentImages)
   const [gallery, setGallery] = useState<AndroidGalleryItem[]>([])
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const nativeGallery = Boolean(
+    getAndroidBridge()?.listRecentImagesAsync || getAndroidBridge()?.listRecentImages
+  )
   const { rendered: panelRendered, closing: panelClosing } = usePresence(panelOpen, 160)
   // 「+」面板向下滑动收起
   const panelSwipeRef = useSwipe<HTMLDivElement>({
@@ -89,18 +95,15 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     verticalThreshold: 60,
   })
 
-  // 打开「+」面板时读取系统相册（仅安卓壳）：按拍摄时间从新到旧
+  // 打开「+」面板时读取系统相册（仅安卓壳）：按拍摄时间从新到旧。
+  // 缩略图走异步桥，避免解码图片时阻塞打开动画。
   useEffect(() => {
     if (!panelOpen) {
       return
     }
     const bridge = getAndroidBridge()
-    if (!bridge?.listRecentImages) {
-      return
-    }
-    const refresh = () => {
+    const applyGallery = (raw: string) => {
       try {
-        const raw = bridge.listRecentImages?.(24) ?? '[]'
         const items: unknown = JSON.parse(raw)
         if (Array.isArray(items)) {
           setGallery(
@@ -116,14 +119,28 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       } catch (error) {
         console.error('gallery list failed', error)
       }
+      setGalleryLoading(false)
     }
-    refresh()
+    const refresh = () => {
+      if (bridge?.listRecentImagesAsync) {
+        setGalleryLoading(true)
+        bridge.listRecentImagesAsync(30)
+      } else if (bridge?.listRecentImages) {
+        applyGallery(bridge.listRecentImages(30))
+      }
+    }
     const host = window as unknown as {
-      __onNativeGalleryReady?: () => void
+      __onNativeGalleryReady?: (json?: unknown) => void
       __onNativeImagePicked?: (url: string, name: string) => void
       __onNativeImagePickFailed?: () => void
     }
-    host.__onNativeGalleryReady = refresh
+    host.__onNativeGalleryReady = (json?: unknown) => {
+      if (typeof json === 'string') {
+        applyGallery(json)
+      } else {
+        refresh()
+      }
+    }
     host.__onNativeImagePicked = async (url: string, name: string) => {
       try {
         const response = await fetch(url)
@@ -144,6 +161,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     host.__onNativeImagePickFailed = () => {
       showToast({ key: 'readingImageFailed', type: 'error' })
     }
+    refresh()
     return () => {
       delete host.__onNativeGalleryReady
       delete host.__onNativeImagePicked
@@ -341,8 +359,13 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             size="m"
             tone="primary"
             className={styles.roundAction}
-            icon={<IconPlusOutline16 />}
+            icon={
+              <span className={clsx(styles.plusGlyph, panelOpen && styles.plusGlyphOpen)}>
+                <IconPlusOutline16 />
+              </span>
+            }
             tooltip={t('uploadFile')}
+            aria-expanded={panelOpen}
             disabled={importingHistory}
             onClick={() => {
               if (ensureApiKey()) {
@@ -430,7 +453,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           role="dialog"
           aria-label={t('uploadFile')}
         >
-          {gallery.length > 0 ? (
+          {nativeGallery || gallery.length > 0 ? (
             <div className={styles.recentStrip} aria-label={t('chooseFromAlbum')}>
               {gallery.map((item) => (
                 <button
@@ -446,9 +469,20 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                     }
                   }}
                 >
-                  <img src={item.dataUrl} alt="" draggable={false} />
+                  <img
+                    src={item.dataUrl}
+                    alt=""
+                    draggable={false}
+                    decoding="async"
+                    loading="lazy"
+                  />
                 </button>
               ))}
+              {gallery.length === 0 && galleryLoading
+                ? Array.from({ length: 4 }, (_, index) => (
+                    <div key={index} className={styles.recentSkeleton} aria-hidden />
+                  ))
+                : null}
             </div>
           ) : recent.length > 0 ? (
             <div className={styles.recentStrip} aria-label={t('recentImages')}>
@@ -464,7 +498,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                       .catch(() => setPanelOpen(false))
                   }}
                 >
-                  <img src={item.dataUrl} alt="" draggable={false} />
+                  <img src={item.dataUrl} alt="" draggable={false} decoding="async" />
                 </button>
               ))}
             </div>
