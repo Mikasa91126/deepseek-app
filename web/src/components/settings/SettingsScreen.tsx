@@ -38,6 +38,7 @@ import {
 } from '../../services/settings.js'
 import { getRegionName, provinces, regionCodes } from '../../services/location.js'
 import { fetchBalance } from '../../services/api/client.js'
+import { useAndroidBack } from '../../services/backStack.js'
 import { useTranslate } from '../../i18n/index.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
@@ -384,6 +385,20 @@ export const SettingsScreen = () => {
     }
   }
 
+  // 安卓返回键：弹窗 → 子页 → 设置根页 → 关闭设置
+  useAndroidBack(() => {
+    if (dialog) {
+      setDialog(null)
+      return true
+    }
+    if (page !== 'root') {
+      setPage('root')
+      return true
+    }
+    closeSettings()
+    return true
+  })
+
   return (
     <div
       className={styles.overlay}
@@ -668,6 +683,10 @@ const VoiceDialog = ({
   const t = useTranslate()
   const [index, setIndex] = useState(() => Math.max(0, VOICES.findIndex((v) => v.id === value)))
   const scrollerRef = useRef<HTMLDivElement>(null)
+  useAndroidBack(() => {
+    onClose()
+    return true
+  })
   const goTo = (next: number) => {
     setIndex(next)
     const el = scrollerRef.current

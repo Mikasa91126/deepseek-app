@@ -5,10 +5,12 @@ import { useIsMobile, useMobileViewport, usePreventPageScroll } from './viewport
 import {
   bindChatPersistence,
   initChat,
+  newChat,
   retrySaveSessions,
   selectSession,
   useChatStore,
 } from '../services/chat/store.js'
+import { useAndroidBack } from '../services/backStack.js'
 import { SearchPanel } from '../components/search/SearchPanel.js'
 import { closeSearchPanel } from '../components/search/searchPanelState.js'
 import { SessionView } from '../components/session/SessionView.js'
@@ -55,6 +57,15 @@ export const App = () => {
     state.activeId === null ? false : Object.hasOwn(state.streaming, state.activeId)
   )
   const activeId = useChatStore((state) => state.activeId)
+
+  // 安卓返回键的兜底：处于会话页时回到首页；首页（以及没有其他可返回层级时）交给原生退出应用
+  useAndroidBack(() => {
+    if (useChatStore.getState().activeId !== null) {
+      newChat()
+      return true
+    }
+    return false
+  })
 
   usePreventPageScroll(isMobile)
 

@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslate } from '../../i18n/index.js'
+import { pushBackHandler } from '../../services/backStack.js'
 import { IconCloseOutline16 } from './icons.js'
 import { IconButton } from './IconButton.js'
 import styles from './Modal.module.css'
@@ -42,9 +43,15 @@ export const Modal = ({
       }
     }
     document.addEventListener('keydown', onKeyDown)
+    // 安卓返回键：先关闭最上层弹窗
+    const removeBackHandler = pushBackHandler(() => {
+      onCloseRef.current()
+      return true
+    })
     return () => {
       openModals.splice(openModals.indexOf(token), 1)
       document.removeEventListener('keydown', onKeyDown)
+      removeBackHandler()
     }
   }, [])
 

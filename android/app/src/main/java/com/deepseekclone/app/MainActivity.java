@@ -278,11 +278,24 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
+        if (webView == null) {
             super.onBackPressed();
+            return;
         }
+        // 先交给网页处理应用内返回层级；未消费时才退出（或按 WebView 历史后退）
+        webView.evaluateJavascript(
+                "(function(){try{return typeof window.__handleAndroidBack === 'function'"
+                        + " && window.__handleAndroidBack() === true}catch(e){return false}})()",
+                value -> {
+                    if ("true".equals(value)) {
+                        return;
+                    }
+                    if (webView.canGoBack()) {
+                        webView.goBack();
+                    } else {
+                        finish();
+                    }
+                });
     }
 
     /** 导出历史对话等文件：保存到系统「下载」目录 */

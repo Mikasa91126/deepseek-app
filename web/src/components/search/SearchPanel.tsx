@@ -1,4 +1,5 @@
 import { useTranslate } from '../../i18n/index.js'
+import { useAndroidBack } from '../../services/backStack.js'
 import { IconCloseOutline16 } from '../base/icons.js'
 import { IconButton } from '../base/IconButton.js'
 import { closeSearchPanel, useSearchPanel } from './searchPanelState.js'
@@ -10,6 +11,11 @@ export const SearchPanel = () => {
   const t = useTranslate()
   const entry = useSearchPanel((state) => state.entry)
   const sources = useSearchPanel((state) => state.sources)
+  // 安卓返回键：优先关闭搜索结果面板
+  useAndroidBack(() => {
+    closeSearchPanel()
+    return true
+  }, entry !== null)
   if (!entry) {
     return null
   }

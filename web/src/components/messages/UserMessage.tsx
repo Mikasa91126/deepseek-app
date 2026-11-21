@@ -10,6 +10,7 @@ import type { UserMessage as UserMessageType } from '../../services/chat/types.j
 import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
+import { useAndroidBack } from '../../services/backStack.js'
 import {
   BranchSwitcher,
   type MessageVersions,
@@ -45,6 +46,11 @@ export const UserMessage = memo(function UserMessage({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isMobile = useIsMobile()
   const canSend = !busy && (draft.trim() !== '' || message.files.length > 0)
+  // 安卓返回键：编辑消息时先退出编辑
+  useAndroidBack(() => {
+    setEditing(false)
+    return true
+  }, editing)
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current
