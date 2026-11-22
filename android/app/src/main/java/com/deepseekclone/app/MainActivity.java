@@ -349,6 +349,14 @@ public class MainActivity extends Activity {
                 pendingCameraUri = null;
                 return;
             }
+            if (resultCode != RESULT_OK && pendingCameraUri != null) {
+                // 取消拍摄时清掉预先创建的空白媒体条目
+                try {
+                    getContentResolver().delete(pendingCameraUri, null, null);
+                } catch (Exception ignored) {
+                    // 条目可能已被系统清理
+                }
+            }
             Uri fromData = data == null ? null : data.getData();
             Uri resultUri = fromData != null ? fromData : pendingCameraUri;
             Uri[] result = null;
