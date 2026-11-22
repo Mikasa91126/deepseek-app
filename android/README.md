@@ -3,7 +3,7 @@
 把 `DeepSeekApp`（DeepSeek 手机端复刻，官方 chat-demo 组装 + 官方 API）封装成原生安卓应用。
 
 - 包名：`com.deepseekclone.app`
-- 版本：0.1.9 (versionCode 9)
+- 版本：0.2.0 (versionCode 10)
 - minSdk 26 / targetSdk 34 / compileSdk 35
 - 无第三方依赖，仅系统 WebView
 
@@ -18,6 +18,9 @@
 - `AndroidBridge.saveFile(name, base64)`：导出历史对话时把 ZIP 写入系统「下载」目录（网页端会优先调用它，非安卓环境回退为浏览器下载）。
 - `AndroidBridge.listRecentImagesAsync(limit)` / `pickGalleryImage(id)`：读取系统相册最近照片（缩略图按屏幕密度生成、内存缓存、工作线程解码后回调网页），点选后把原图拷到缓存再交给网页上传。
 - `AndroidBridge.isSystemDark()` 与 `__onNativeThemeChanged()`：网页「跟随系统」主题取系统深浅色，状态栏/导航栏与启动底色随系统切换（WebView 的 `prefers-color-scheme` 在应用固定 Light 主题时不可靠）。
+- `CameraActivity`：应用内相机（Camera API，无第三方依赖），官方同款「图像识别」拍摄页，支持变焦档位、闪光灯、前后摄像头切换，照片按 EXIF 方向旋转、压缩后写入 MediaStore 并作为附件返回网页。
+- 照片选择：图片多选走系统 Photo Picker（`ACTION_PICK_IMAGES`，最多 20 张，Android 13+）；拍摄走应用内相机；文件选择仍走系统文件选择器。
+- 旧系统存储：Android 10 及以下导出文件时申请 `WRITE_EXTERNAL_STORAGE` 并写入公共「下载」目录（Android 11+ 使用 MediaStore，无需该权限）。
 - 媒体自动播放已放开（自动朗读）；明文流量关闭，仅 https。
 
 ## 构建

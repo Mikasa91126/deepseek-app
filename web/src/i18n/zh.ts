@@ -212,11 +212,11 @@ export const zh = {
   permissionCameraName: 'CAMERA 摄像头',
   permissionCameraFunc: '使用相机拍摄照片和视频',
   permissionCameraPurpose:
-    '用于帮助你完成拍摄及发送图片等功能（本应用调用系统相机，不直接申请相机权限）。',
+    '用于在应用内拍摄照片，完成后作为图片消息发送。',
   permissionWriteName: 'WRITE_EXTERNAL_STORAGE 写入外置存储器',
   permissionWriteFunc: '提供写入外部储存功能',
   permissionWritePurpose:
-    '（适用于 Android 10 及以下系统）用于帮助你下载、保存图片等信息。本应用通过系统媒体库或应用专属目录保存导出文件。',
+    '（适用于 Android 10 及以下系统）用于把导出的历史对话或图片保存到系统「下载」目录。',
   permissionAudioName: 'RECORD_AUDIO 录音',
   permissionAudioFunc: '使用麦克风录制音频',
   permissionAudioPurpose: '用于帮助您完成语音输入等需要使用该权限的相关功能。',

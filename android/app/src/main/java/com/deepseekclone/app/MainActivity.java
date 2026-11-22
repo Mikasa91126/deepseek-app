@@ -58,6 +58,8 @@ public class MainActivity extends Activity {
     private static final int REQ_AUDIO = 1002;
     private static final int REQ_NATIVE_ZIP = 1003;
     private static final int REQ_MEDIA_IMAGES = 1004;
+    private static final int REQ_CAMERA = 1005;
+    private static final int REQ_WRITE_STORAGE = 1006;
 
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
@@ -261,37 +263,52 @@ public class MainActivity extends Activity {
             pendingCameraUri = null;
 
             boolean wantsImage = false;
+            boolean onlyImages = true;
             for (String type : params.getAcceptTypes()) {
-                if (type != null && type.startsWith("image/")) {
+                if (type == null || type.isEmpty()) {
+                    continue;
+                }
+                if (type.startsWith("image/")) {
                     wantsImage = true;
-                    break;
+                } else {
+                    onlyImages = false;
                 }
             }
+            boolean multiple = params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;
 
             Intent intent;
-            if (params.isCaptureEnabled() && wantsImage && Build.VERSION.SDK_INT >= 29) {
+            int requestCode = REQ_FILE;
+            if (params.isCaptureEnabled() && wantsImage) {
+                // 应用内相机（官方同款拍摄页），结果写入 MediaStore
                 pendingCameraUri = createCameraUri();
-                intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                intent = new Intent(MainActivity.this, CameraActivity.class);
                 if (pendingCameraUri != null) {
                     intent.putExtra(MediaStore.EXTRA_OUTPUT, pendingCameraUri);
                 }
+                requestCode = REQ_CAMERA;
+            } else if (wantsImage && onlyImages && multiple && Build.VERSION.SDK_INT >= 33) {
+                // 系统照片选择器，多选上限与官方一致为 20 张
+                intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
+                intent.setType("image/*");
+                intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 20);
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
             } else {
                 intent = params.createIntent();
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                if (multiple) {
                     intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                 }
             }
 
             try {
-                startActivityForResult(intent, REQ_FILE);
+                startActivityForResult(intent, requestCode);
             } catch (Exception e) {
                 if (filePathCallback != null) {
                     filePathCallback.onReceiveValue(null);
                     filePathCallback = null;
                 }
                 pendingCameraUri = null;
-                Toast.makeText(MainActivity.this, "无法打开文件选择器", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "无法打开选择器", Toast.LENGTH_SHORT).show();
             }
             return true;
         }
@@ -325,6 +342,22 @@ public class MainActivity extends Activity {
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {
                 copyPickedZip(data.getData());
             }
+            return;
+        }
+        if (requestCode == REQ_CAMERA) {
+            if (filePathCallback == null) {
+                pendingCameraUri = null;
+                return;
+            }
+            Uri fromData = data == null ? null : data.getData();
+            Uri resultUri = fromData != null ? fromData : pendingCameraUri;
+            Uri[] result = null;
+            if (resultCode == RESULT_OK && resultUri != null) {
+                result = new Uri[]{resultUri};
+            }
+            filePathCallback.onReceiveValue(result);
+            filePathCallback = null;
+            pendingCameraUri = null;
             return;
         }
         if (requestCode == REQ_FILE) {
@@ -423,6 +456,15 @@ public class MainActivity extends Activity {
                     "window.__onNativeGalleryReady && window.__onNativeGalleryReady()", null);
             return;
         }
+        if (requestCode == REQ_WRITE_STORAGE) {
+            Toast.makeText(this,
+                    grantResults.length > 0
+                            && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                            ? "已获得存储权限，请重新导出"
+                            : "未获得存储权限，无法保存到下载目录",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (requestCode == REQ_AUDIO && pendingAudioRequest != null) {
             if (grantResults.length > 0
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -499,7 +541,20 @@ public class MainActivity extends Activity {
                         output.write(bytes);
                     }
                 } else {
-                    File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                    // Android 10 及以下：官方会申请写入外置存储权限，把文件存到公共「下载」目录
+                    if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            != PackageManager.PERMISSION_GRANTED) {
+                        runOnUiThread(() -> {
+                            requestPermissions(
+                                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                                    REQ_WRITE_STORAGE);
+                            Toast.makeText(MainActivity.this,
+                                    "请允许存储权限后重新导出", Toast.LENGTH_SHORT).show();
+                        });
+                        return false;
+                    }
+                    File dir = Environment.getExternalStoragePublicDirectory(
+                            Environment.DIRECTORY_DOWNLOADS);
                     if (dir == null) {
                         return false;
                     }

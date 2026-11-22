@@ -222,11 +222,11 @@ export const en = {
   permissionCameraName: 'CAMERA',
   permissionCameraFunc: 'Take photos and videos with the camera',
   permissionCameraPurpose:
-    'Used to take and send photos. This app opens the system camera and does not request the camera permission itself.',
+    'Used to take photos in the in-app camera and send them as image messages.',
   permissionWriteName: 'WRITE_EXTERNAL_STORAGE',
   permissionWriteFunc: 'Write to external storage',
   permissionWritePurpose:
-    'For Android 10 and below, used to download and save images and other files. This app saves exports through the system media library or its app-specific folder.',
+    'For Android 10 and below, used to save exported chats or images to the public Downloads folder.',
   permissionAudioName: 'RECORD_AUDIO',
   permissionAudioFunc: 'Record audio with the microphone',
   permissionAudioPurpose: 'Used for voice input and related features.',
