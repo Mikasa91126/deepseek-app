@@ -284,4 +284,7 @@ body {
 
   --dsw-font-xs-13: calc(13px * var(--app-font-scale, 1)) /
     calc(20px * var(--app-font-scale, 1)) var(--dsw-font-family);
+
+  --dsw-font-xs-12: calc(12px * var(--app-font-scale, 1)) /
+    calc(18px * var(--app-font-scale, 1)) var(--dsw-font-family);
 }

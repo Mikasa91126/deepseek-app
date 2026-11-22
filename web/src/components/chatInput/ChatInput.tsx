@@ -57,6 +57,50 @@ type AndroidBridge = {
 }
 const getAndroidBridge = () => (window as unknown as { AndroidBridge?: AndroidBridge }).AndroidBridge
 
+/** 照片条图片懒加载：滚动到附近才挂 src，避免一次解码几十张缩略图 */
+const LazyGalleryImage = memo(function LazyGalleryImage({
+  src,
+  eager = false,
+}: {
+  src: string
+  eager?: boolean
+}) {
+  const ref = useRef<HTMLImageElement>(null)
+  const [show, setShow] = useState(eager)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || show) {
+      return
+    }
+    if (typeof IntersectionObserver === 'undefined') {
+      setShow(true)
+      return
+    }
+    const root = el.closest('[class*="recentStrip"]')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShow(true)
+          observer.disconnect()
+        }
+      },
+      { root, rootMargin: '0px 320px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [show])
+  return (
+    <img
+      ref={ref}
+      src={show ? src : undefined}
+      alt=""
+      draggable={false}
+      decoding="async"
+      loading="lazy"
+    />
+  )
+})
+
 /** 输入框：自适应高度的文本框 + 文件 + 深度思考与智能搜索开关 + 语音输入 + 发送 / 停止 */
 export const ChatInput = memo(function ChatInput({ sessionId }: { sessionId: string | null }) {
   // 切换目标时释放录音、转写和 DOM 状态；文字与附件由草稿服务保留。
@@ -85,6 +129,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const [recent, setRecent] = useState<RecentImage[]>(readRecentImages)
   const [gallery, setGallery] = useState<AndroidGalleryItem[]>([])
   const [galleryLoading, setGalleryLoading] = useState(false)
+  // 已在面板里点选过的照片：点击即加入附件，可连续点选多张
+  const [pickedGallery, setPickedGallery] = useState<Set<string>>(() => new Set())
   const nativeGallery = Boolean(
     getAndroidBridge()?.listRecentImagesAsync || getAndroidBridge()?.listRecentImages
   )
@@ -94,6 +140,13 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     onSwipeDown: () => setPanelOpen(false),
     verticalThreshold: 60,
   })
+
+  // 关闭面板后清空本次多选状态，下次打开是新的选择
+  useEffect(() => {
+    if (!panelOpen) {
+      setPickedGallery(new Set())
+    }
+  }, [panelOpen])
 
   // 打开「+」面板时读取系统相册（仅安卓壳）：按拍摄时间从新到旧。
   // 缩略图走异步桥，避免解码图片时阻塞打开动画。
@@ -131,7 +184,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     }
     const host = window as unknown as {
       __onNativeGalleryReady?: (json?: unknown) => void
-      __onNativeImagePicked?: (url: string, name: string) => void
+      __onNativeImagePicked?: (url: string, name: string, id?: string) => void
       __onNativeImagePickFailed?: () => void
     }
     host.__onNativeGalleryReady = (json?: unknown) => {
@@ -141,7 +194,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         refresh()
       }
     }
-    host.__onNativeImagePicked = async (url: string, name: string) => {
+    host.__onNativeImagePicked = async (url: string, name: string, id?: string) => {
       try {
         const response = await fetch(url)
         if (!response.ok) {
@@ -152,9 +205,19 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           new File([blob], name || 'image.jpg', {
             type: blob.type.startsWith('image/') ? blob.type : 'image/jpeg',
           }),
-        ])
+        ], { keepPanelOpen: true })
       } catch (error) {
         console.error('native image pick failed', error)
+        if (id) {
+          setPickedGallery((current) => {
+            if (!current.has(id)) {
+              return current
+            }
+            const next = new Set(current)
+            next.delete(id)
+            return next
+          })
+        }
         showToast({ key: 'readingImageFailed', type: 'error' })
       }
     }
@@ -196,7 +259,10 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     return () => observer.disconnect()
   }, [t])
 
-  const acceptFiles = (files: File[]) => {
+  const acceptFiles = (
+    files: File[],
+    { keepPanelOpen = false }: { keepPanelOpen?: boolean } = {}
+  ) => {
     if (files.length === 0 || useChatStore.getState().importingHistory || !ensureApiKey()) {
       return
     }
@@ -205,7 +271,9 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       showToast(error)
     }
     void rememberRecentImages(files).then(() => setRecent(readRecentImages()))
-    setPanelOpen(false)
+    if (!keepPanelOpen) {
+      setPanelOpen(false)
+    }
   }
   const retryFile = useCallback(
     (id: string) => {
@@ -271,6 +339,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       return
     }
     setPanelOpen(false)
+    setPickedGallery(new Set())
     stopReadAloud()
     if (isMobile) {
       textareaRef.current?.blur()
@@ -457,35 +526,55 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           aria-label={t('uploadFile')}
         >
           {nativeGallery || gallery.length > 0 ? (
-            <div className={styles.recentStrip} aria-label={t('chooseFromAlbum')}>
-              {gallery.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={styles.recentCard}
-                  aria-label={item.name}
-                  onClick={() => {
-                    const bridge = getAndroidBridge()
-                    if (bridge?.pickGalleryImage) {
-                      showToast({ key: 'readingImage' })
-                      bridge.pickGalleryImage(item.id)
-                    }
-                  }}
-                >
-                  <img
-                    src={item.dataUrl}
-                    alt=""
-                    draggable={false}
-                    decoding="async"
-                    loading="lazy"
-                  />
-                </button>
-              ))}
-              {gallery.length === 0 && galleryLoading
-                ? Array.from({ length: 4 }, (_, index) => (
-                    <div key={index} className={styles.recentSkeleton} aria-hidden />
-                  ))
-                : null}
+            <div className={styles.recentWrap}>
+              <div className={styles.recentStrip} aria-label={t('chooseFromAlbum')}>
+                {gallery.map((item, index) => {
+                  const picked = pickedGallery.has(item.id)
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={clsx(styles.recentCard, picked && styles.recentCardPicked)}
+                      aria-label={item.name}
+                      aria-pressed={picked}
+                      onClick={() => {
+                        if (picked) {
+                          return
+                        }
+                        const bridge = getAndroidBridge()
+                        if (!bridge?.pickGalleryImage) {
+                          return
+                        }
+                        const ok = bridge.pickGalleryImage(item.id)
+                        if (ok === false) {
+                          showToast({ key: 'readingImageFailed', type: 'error' })
+                          return
+                        }
+                        showToast({ key: 'readingImage' })
+                        setPickedGallery((current) => new Set(current).add(item.id))
+                      }}
+                    >
+                      <LazyGalleryImage src={item.dataUrl} eager={index < 5} />
+                      {picked ? (
+                        <span className={styles.recentCheck} aria-hidden>
+                          ✓
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+                {gallery.length === 0 && galleryLoading
+                  ? Array.from({ length: 4 }, (_, index) => (
+                      <div key={index} className={styles.recentSkeleton} aria-hidden />
+                    ))
+                  : null}
+              </div>
+              {/* 始终占位，选中照片时面板不会跳动 */}
+              <div className={styles.galleryStatus} aria-live="polite">
+                {pickedGallery.size > 0
+                  ? t('selectedPhotos', { count: pickedGallery.size })
+                  : ''}
+              </div>
             </div>
           ) : recent.length > 0 ? (
             <div className={styles.recentStrip} aria-label={t('recentImages')}>

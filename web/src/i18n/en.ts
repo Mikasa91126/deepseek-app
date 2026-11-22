@@ -287,6 +287,7 @@ export const en = {
     'In the official app: Settings → Data → Export all chats, then pick the exported ZIP here.',
   readingZipFile: 'Reading the selected ZIP...',
   readingImage: 'Reading image...',
+  selectedPhotos: 'Selected {count}',
   readingImageFailed: 'Failed to read the image. Please try again.',
   pinnedGroupLabel: 'Pinned',
   manageChats: 'Select chats',

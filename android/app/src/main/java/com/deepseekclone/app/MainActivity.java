@@ -670,8 +670,11 @@ public class MainActivity extends Activity {
                     }
                     File[] olds = dir.listFiles();
                     if (olds != null) {
+                        // 只清理 10 分钟前的旧文件，连续多选时不能删掉刚拷贝的图片
+                        long cutoff = System.currentTimeMillis() - 10 * 60 * 1000L;
                         for (File old : olds) {
-                            if (old.getName().startsWith("gallery-")) {
+                            if (old.getName().startsWith("gallery-")
+                                    && old.lastModified() < cutoff) {
                                 //noinspection ResultOfMethodCallIgnored
                                 old.delete();
                             }
@@ -679,7 +682,9 @@ public class MainActivity extends Activity {
                     }
                     String mime = getContentResolver().getType(uri);
                     String extension = mimeToExtension(mime);
-                    File out = new File(dir, "gallery-" + System.currentTimeMillis() + extension);
+                    File out = new File(dir,
+                            "gallery-" + System.currentTimeMillis() + "-"
+                                    + System.nanoTime() % 100000 + extension);
                     copyUriToFile(uri, out);
                     String name = queryDisplayName(uri);
                     if (name == null || name.trim().isEmpty()) {
@@ -689,7 +694,7 @@ public class MainActivity extends Activity {
                     }
                     String script = "window.__onNativeImagePicked && window.__onNativeImagePicked("
                             + "'https://" + ASSET_HOST + "/__picked__/" + out.getName() + "', "
-                            + JSONObject.quote(name) + ")";
+                            + JSONObject.quote(name) + ", " + JSONObject.quote(id) + ")";
                     runOnUiThread(() -> webView.evaluateJavascript(script, null));
                 } catch (Exception e) {
                     runOnUiThread(() -> webView.evaluateJavascript(

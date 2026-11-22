@@ -70,11 +70,10 @@
       0,
       0
     );
-    border-top-left-radius: calc(var(--sider-progress, 0) * 18px);
-    border-bottom-left-radius: calc(var(--sider-progress, 0) * 18px);
-    transition:
-      transform var(--sider-transition, 220ms) var(--app-ease-out, ease-out),
-      border-radius var(--sider-transition, 220ms) var(--app-ease-out, ease-out);
+    /* 常驻左圆角：收起时与背景同色不可见，拖动时无需逐帧插值圆角 */
+    border-top-left-radius: 18px;
+    border-bottom-left-radius: 18px;
+    transition: transform var(--sider-transition, 220ms) var(--app-ease-out, ease-out);
     overflow: hidden;
     background-color: var(--dsw-alias-bg-base);
     will-change: transform;

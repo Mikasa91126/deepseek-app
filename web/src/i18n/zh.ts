@@ -276,6 +276,7 @@ export const zh = {
   historyImportHint: '官方 App：设置 → 数据管理 → 导出所有历史对话，选择导出的 ZIP 即可导入。',
   readingZipFile: '正在读取所选 ZIP…',
   readingImage: '正在读取图片…',
+  selectedPhotos: '已选 {count} 张',
   readingImageFailed: '读取图片失败，请重试',
   pinnedGroupLabel: '置顶',
   manageChats: '选择对话',

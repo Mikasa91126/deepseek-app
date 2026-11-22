@@ -7,7 +7,6 @@
   align-items: center;
   justify-content: center;
   background-color: rgba(0, 0, 0, var(--overlay-opacity));
-  backdrop-filter: blur(2px);
   animation: overlayIn var(--app-motion-base, 220ms) var(--app-ease-out, ease-out) both;
 
   [data-ds-dark-theme] & {
@@ -67,6 +66,7 @@
     0 0 4px 0 rgba(0, 0, 0, 0.02),
     0 12px 32px 0 rgba(0, 0, 0, 0.08);
   animation: modalIn var(--app-motion-base, 220ms) var(--app-ease-spring, ease-out) both;
+  will-change: transform, opacity;
 }
 
 .header {

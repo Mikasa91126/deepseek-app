@@ -6,7 +6,6 @@
   align-items: center;
   justify-content: center;
   background-color: rgba(0, 0, 0, 0.36);
-  backdrop-filter: blur(2px);
 
   [data-ds-dark-theme] & {
     background-color: rgba(0, 0, 0, 0.6);
@@ -27,6 +26,7 @@
     0 0 1px 0 rgba(0, 0, 0, 0.2),
     0 12px 32px 0 rgba(0, 0, 0, 0.12);
   animation: pageIn var(--app-motion-base, 220ms) var(--app-ease-spring, ease-out) both;
+  will-change: transform, opacity;
 
   &.closing {
     animation: pageOut 200ms ease both;
@@ -53,7 +53,7 @@
 
 /* 设置子页切换：根页从左侧、子页从右侧滑入 */
 .pageBodyRoot {
-  animation: bodyFromLeft var(--app-motion-base, 220ms) var(--app-ease-out, ease-out) both;
+  /* 根页在打开时已随整页入场，不再重复滑入，减少同时播放的动画层 */
 }
 
 .pageBodySub {
@@ -71,38 +71,6 @@
   from {
     opacity: 0;
     transform: translateX(18px);
-  }
-}
-
-/* 分组卡片依次浮现 */
-.pageBody > .group {
-  animation: groupRise 300ms var(--app-ease-out, ease-out) both;
-}
-
-.pageBody > .group:nth-child(2) {
-  animation-delay: 30ms;
-}
-
-.pageBody > .group:nth-child(3) {
-  animation-delay: 60ms;
-}
-
-.pageBody > .group:nth-child(4) {
-  animation-delay: 90ms;
-}
-
-.pageBody > .group:nth-child(5) {
-  animation-delay: 120ms;
-}
-
-.pageBody > .group:nth-child(6) {
-  animation-delay: 150ms;
-}
-
-@keyframes groupRise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
   }
 }
 
