@@ -1,6 +1,6 @@
 .ds-think-content .ds-markdown {
   font: var(--dsw-font-markdown-small);
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-tertiary);
 
   h1,
   h2,
@@ -93,4 +93,13 @@
       margin-left: 0;
     }
   }
+}
+
+/* 实时思考窗内部：去掉首尾多余额外边距，避免渐隐区域截断 */
+.ds-think-content .ds-markdown > :first-child {
+  margin-top: 0;
+}
+
+.ds-think-content .ds-markdown > :last-child {
+  margin-bottom: 0;
 }

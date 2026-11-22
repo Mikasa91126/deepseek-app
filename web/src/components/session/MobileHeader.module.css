@@ -10,12 +10,14 @@
 .title {
   flex: 1;
   min-width: 0;
-  margin: 0 12px;
+  margin: 0 12px 0 2px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  text-align: center;
-  font: var(--dsw-font-s-strong-14);
+  text-align: left;
+  /* 与官方 App 一致：标题紧贴菜单键，17px 半粗，不居中 */
+  font: 600 calc(17px * var(--app-font-scale, 1)) / calc(24px * var(--app-font-scale, 1))
+    var(--dsw-font-family);
   color: var(--dsw-alias-label-primary);
 }
 

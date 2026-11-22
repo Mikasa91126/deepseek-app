@@ -1,5 +1,6 @@
 import { useIsMobile } from '../../app/viewport.js'
 import { useTranslate } from '../../i18n/index.js'
+import { useChatStore } from '../../services/chat/store.js'
 import { ChatInput } from '../chatInput/ChatInput.js'
 import { MobileHeader } from './MobileHeader.js'
 import styles from './Welcome.module.css'
@@ -8,12 +9,14 @@ import styles from './Welcome.module.css'
 export const Welcome = () => {
   const t = useTranslate()
   const isMobile = useIsMobile()
+  // 有历史会话时使用「欢迎回来」，与官方 App 的问候逻辑一致
+  const welcomeBack = useChatStore((state) => state.sessions.length > 0)
   return (
     <div className={styles.container}>
       {isMobile ? <MobileHeader /> : null}
       <div className={styles.welcome}>
         <img className={styles.logo} src="icon.svg" alt="" draggable={false} />
-        <div className={styles.greeting}>{t('appGreeting')}</div>
+        <div className={styles.greeting}>{t(welcomeBack ? 'welcomeBack' : 'appGreeting')}</div>
         <ChatInput sessionId={null} />
         {isMobile ? <div className={styles.caveat}>{t('contentCaveat')}</div> : null}
       </div>

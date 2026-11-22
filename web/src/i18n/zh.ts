@@ -55,8 +55,8 @@ export const zh = {
   toolSearchResults: '搜索到 {count} 个网页',
   messageSearchResult: '已阅读 1 个网页',
   messageSearchResults: '已阅读 {count} 个网页',
-  toolOpenOneIntro: '浏览 1 个页面',
-  toolOpensIntro: '浏览 {count} 个页面',
+  toolOpenOneIntro: '已浏览 1 个页面',
+  toolOpensIntro: '已浏览 {count} 个页面',
   toolOpenFail: '浏览页面失败',
   toolOpenFailTooltip: '浏览失败',
   toolOpenViewAll: '查看全部',
@@ -178,6 +178,7 @@ export const zh = {
   settingsLocaleZhCN: '中文（简体中文）',
   settingsLocaleEnUS: 'English',
   appGreeting: '你好，我是 DeepSeek',
+  welcomeBack: '欢迎回来，想从哪里开始？',
   searchSessionsPlaceholder: '搜索对话内容...',
   sessionsSearchEmpty: '未找到相关对话',
   settingsGroupAccount: '账户',
@@ -191,6 +192,49 @@ export const zh = {
   settingsPersonalize: '个性化',
   settingsCheckUpdate: '检查更新',
   settingsTerms: '服务协议',
+  settingsPermissions: '应用权限申请与使用情况说明',
+  permissionsMeta: '修订时间：2026年4月27日',
+  permissionsIntro1:
+    '为保障 DeepSeek 产品功能实现与安全稳定运行之目的，我们可能会申请或使用操作系统的相关权限；',
+  permissionsIntro2:
+    '为保障您的知情权，我们通过下列列表将产品可能申请、使用的相关操作系统权限进行展示，您可以根据实际需要对相关权限进行管理；',
+  permissionsIntro3:
+    '根据产品的升级，申请、使用权限的类型与目的可能会有变动，我们将及时根据这些变动对列表进行调整，以确保您及时获悉权限的申请与使用情况；',
+  permissionsIntro4:
+    '请您知悉，我们为业务与产品的功能与安全需要，可能也会使用第三方 SDK，这些第三方也可能会申请或使用相关操作系统权限；',
+  permissionsIntro5:
+    '在使用产品的过程中，您可能会使用第三方开发的 H5 页面或小程序，这些第三方开发的插件或小程序也可能因业务功能所必需而申请或使用相关操作系统权限。',
+  permissionsAndroidTitle: '安卓操作系统应用权限列表',
+  permissionsFuncLabel: '权限功能说明',
+  permissionsPurposeLabel: '使用场景或目的',
+  permissionsManageHint:
+    '你可以在系统设置 → 应用 → DeepSeek 中管理这些权限；拒绝授权仅影响对应功能，不影响其他功能的使用。',
+  permissionCameraName: 'CAMERA 摄像头',
+  permissionCameraFunc: '使用相机拍摄照片和视频',
+  permissionCameraPurpose:
+    '用于帮助你完成拍摄及发送图片等功能（本应用调用系统相机，不直接申请相机权限）。',
+  permissionWriteName: 'WRITE_EXTERNAL_STORAGE 写入外置存储器',
+  permissionWriteFunc: '提供写入外部储存功能',
+  permissionWritePurpose:
+    '（适用于 Android 10 及以下系统）用于帮助你下载、保存图片等信息。本应用通过系统媒体库或应用专属目录保存导出文件。',
+  permissionAudioName: 'RECORD_AUDIO 录音',
+  permissionAudioFunc: '使用麦克风录制音频',
+  permissionAudioPurpose: '用于帮助您完成语音输入等需要使用该权限的相关功能。',
+  permissionReadImagesName: 'READ_MEDIA_IMAGES 读取媒体图片（适用于 Android 13 及以上系统）',
+  permissionReadImagesFunc: '允许 App 从外部存储读取图片数据',
+  permissionReadImagesPurpose: '允许 App 读取存储中的图片等内容，用于帮助您发送图片消息。',
+  permissionVisualName:
+    'READ_MEDIA_VISUAL_USER_SELECTED 读取用户选择媒体（适用于 Android 14 及以上系统）',
+  permissionVisualFunc: '仅允许 App 读取您选择的部分照片和视频',
+  permissionVisualPurpose: '在您仅授权部分照片时，用于帮助您发送所选图片。',
+  permissionReadStorageName:
+    'READ_EXTERNAL_STORAGE 读取外置存储器（适用于 Android 12 及以下系统）',
+  permissionReadStorageFunc: '允许 App 从外部存储读取图片数据',
+  permissionReadStoragePurpose: '允许 App 读取存储中的图片等内容，用于帮助您发送图片消息。',
+  permissionInternetName: 'INTERNET 网络访问',
+  permissionInternetFunc: '访问网络',
+  permissionInternetPurpose:
+    '用于与 DeepSeek 官方 API 通信、发送消息与上传附件（普通权限，安装时授予，无需弹窗）。',
   settingsHelpFeedback: '帮助与反馈',
   settingsSignOut: '退出登录',
   checkUpdateLatest: '当前已是最新版本',

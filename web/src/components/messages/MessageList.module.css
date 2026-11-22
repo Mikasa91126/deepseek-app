@@ -4,7 +4,22 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* 滚动层：消息滚动与「回到底部」共用的定位上下文，输入区留在其下方 */
+.scrollLayer {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   scrollbar-gutter: stable both-edges;
   scrollbar-color: var(--scroll-color) transparent;
 }
@@ -13,7 +28,7 @@
 .jumpButton {
   position: absolute;
   right: 16px;
-  bottom: 16px;
+  bottom: 12px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -21,14 +36,19 @@
   width: 36px;
   height: 36px;
   padding: 0;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 50%;
   background-color: var(--dsw-alias-bg-layer-2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  color: var(--dsw-alias-label-secondary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  color: var(--dsw-alias-brand-text);
   cursor: pointer;
   animation: jumpIn 180ms var(--app-ease-spring, ease-out) both;
   transition: background-color 0.2s ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 
   &.closing {
     animation: jumpOut 150ms ease both;
@@ -54,23 +74,17 @@
 }
 
 .scroll {
-  display: contents;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-color: var(--scroll-color) transparent;
 }
 
 @media not all and (min-width: 768px) {
-  .container {
-    overflow: hidden;
-    scrollbar-gutter: auto;
-  }
-
   .scroll {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
-    scrollbar-color: var(--scroll-color) transparent;
+    scrollbar-gutter: auto;
   }
 }
 

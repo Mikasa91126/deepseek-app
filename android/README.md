@@ -3,7 +3,7 @@
 把 `DeepSeekApp`（DeepSeek 手机端复刻，官方 chat-demo 组装 + 官方 API）封装成原生安卓应用。
 
 - 包名：`com.deepseekclone.app`
-- 版本：0.1.8 (versionCode 8)
+- 版本：0.1.9 (versionCode 9)
 - minSdk 26 / targetSdk 34 / compileSdk 35
 - 无第三方依赖，仅系统 WebView
 

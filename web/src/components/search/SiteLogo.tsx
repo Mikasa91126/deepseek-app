@@ -35,3 +35,22 @@ export const SiteThumbnails = ({ sources }: { sources: Source[] }) => (
     ))}
   </span>
 )
+
+/** 「已浏览 N 个页面」后面的站点图标：按页面顺序显示，最多 5 个 */
+export const PageThumbnails = ({
+  pages,
+  sources,
+}: {
+  pages: { url?: string | null }[]
+  sources: Source[]
+}) => (
+  <span className={styles.group}>
+    {pages.slice(0, 5).map((page, index) => (
+      <SiteLogo
+        key={`${page.url ?? 'page'}-${index}`}
+        url={sources.find((source) => source.url === page.url)?.siteIcon ?? null}
+        className={styles.thumbnail}
+      />
+    ))}
+  </span>
+)

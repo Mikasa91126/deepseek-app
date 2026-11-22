@@ -11,6 +11,16 @@
   }
 }
 
+/* 流式输出时正文底部渐隐：最新 1~2 行由浅到深，输出结束后恢复实色 */
+.answerBody {
+  position: relative;
+}
+
+.streamingTail {
+  mask-image: linear-gradient(to top, transparent 0, #000 1.7em);
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 1.7em);
+}
+
 /* 新回复入场：轻微上浮 + 淡入 */
 .message.enter {
   animation: messageIn 260ms var(--app-ease-out, ease-out) both;
@@ -120,6 +130,11 @@
   transform: none;
 }
 
+/* 重新生成固定在操作行最右侧（与官方 App 一致） */
+.regenerate {
+  margin-left: auto;
+}
+
 .continueButton {
   margin-left: auto;
 }
@@ -133,10 +148,10 @@
   align-items: center;
   width: fit-content;
   margin-top: 16px;
-  padding: 4px 10px 4px 4px;
+  padding: 4px 12px 4px 4px;
   border-radius: 100px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  background-color: var(--dsw-alias-bg-base);
+  border: none;
+  background-color: var(--dsw-alias-markdown-tag);
   color: var(--dsw-alias-label-primary);
   font: var(--dsw-font-markdown-small);
   cursor: pointer;

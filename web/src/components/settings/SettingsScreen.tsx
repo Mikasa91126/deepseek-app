@@ -52,7 +52,7 @@ import { closeSettings, ensureApiKey, useSettingsDialog } from './settingsDialog
 import styles from './SettingsScreen.module.css'
 
 /** 设置页内的二级页面；接口兼容旧调用方：'data' 表示打开账号页（含 API Key 输入） */
-type Page = 'root' | 'account' | 'data' | 'font' | 'personalize'
+type Page = 'root' | 'account' | 'data' | 'font' | 'personalize' | 'permissions'
 type Dialog = 'appearance' | 'language' | 'voice' | 'model' | null
 
 const HELP_URL = 'https://api-docs.deepseek.com/zh-cn/guides/build_a_chatbot'
@@ -394,6 +394,52 @@ const PersonalizePage = () => {
   )
 }
 
+/** 权限说明的条目：名称 / 功能说明 / 使用场景 */
+const PERMISSION_ITEMS = [
+  ['permissionCameraName', 'permissionCameraFunc', 'permissionCameraPurpose'],
+  ['permissionWriteName', 'permissionWriteFunc', 'permissionWritePurpose'],
+  ['permissionAudioName', 'permissionAudioFunc', 'permissionAudioPurpose'],
+  ['permissionReadImagesName', 'permissionReadImagesFunc', 'permissionReadImagesPurpose'],
+  ['permissionVisualName', 'permissionVisualFunc', 'permissionVisualPurpose'],
+  ['permissionReadStorageName', 'permissionReadStorageFunc', 'permissionReadStoragePurpose'],
+  ['permissionInternetName', 'permissionInternetFunc', 'permissionInternetPurpose'],
+] as const
+
+/** 关于 → 应用权限申请与使用情况说明（对应官方 App 的同名文档页） */
+const PermissionsPage = () => {
+  const t = useTranslate()
+  return (
+    <>
+      <p className={styles.docMeta}>{t('permissionsMeta')}</p>
+      {(
+        [
+          'permissionsIntro1',
+          'permissionsIntro2',
+          'permissionsIntro3',
+          'permissionsIntro4',
+          'permissionsIntro5',
+        ] as const
+      ).map((key) => (
+        <p key={key} className={styles.docParagraph}>
+          {t(key)}
+        </p>
+      ))}
+      <Group label={t('permissionsAndroidTitle')}>
+        {PERMISSION_ITEMS.map(([name, func, purpose]) => (
+          <div key={name} className={styles.permissionItem}>
+            <div className={styles.permissionName}>{t(name)}</div>
+            <div className={styles.permissionLabel}>{t('permissionsFuncLabel')}</div>
+            <p className={styles.permissionText}>{t(func)}</p>
+            <div className={styles.permissionLabel}>{t('permissionsPurposeLabel')}</div>
+            <p className={styles.permissionText}>{t(purpose)}</p>
+          </div>
+        ))}
+      </Group>
+      <p className={styles.hint}>{t('permissionsManageHint')}</p>
+    </>
+  )
+}
+
 /** 设置主页面：全屏二级页，分组卡片与官方 App 一致 */
 export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
   const t = useTranslate()
@@ -414,6 +460,7 @@ export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
     data: t('settingsDataManage'),
     font: t('settingsFontSize'),
     personalize: t('settingsPersonalize'),
+    permissions: t('settingsPermissions'),
   }
   const themeLabel =
     themePreference === 'light'
@@ -536,6 +583,11 @@ export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
                   label={t('settingsTerms')}
                   onClick={() => window.open(TERMS_URL, '_blank', 'noopener,noreferrer')}
                 />
+                <Row
+                  icon={<IconInfoOutline16 />}
+                  label={t('settingsPermissions')}
+                  onClick={() => setPage('permissions')}
+                />
               </Group>
               <Group label="">
                 <Row
@@ -563,8 +615,10 @@ export const SettingsScreen = ({ closing = false }: { closing?: boolean }) => {
             <DataPage />
           ) : page === 'font' ? (
             <FontPage />
-          ) : (
+          ) : page === 'personalize' ? (
             <PersonalizePage />
+          ) : (
+            <PermissionsPage />
           )}
           </div>
         </div>

@@ -113,14 +113,16 @@ export const AssistantMessage = memo(function AssistantMessage({
         />
       )}
       {answer ? (
-        <Markdown
-          className="ds-assistant-message-main-content"
-          content={answer.markdown}
-          loading={streaming}
-          cacheKey={message.id}
-          disableLink={false}
-          sources={view.sources}
-        />
+        <div className={clsx(styles.answerBody, streaming && styles.streamingTail)}>
+          <Markdown
+            className="ds-assistant-message-main-content"
+            content={answer.markdown}
+            loading={streaming}
+            cacheKey={message.id}
+            disableLink={false}
+            sources={view.sources}
+          />
+        </div>
       ) : null}
       {waiting ? (
         <div className={styles.waiting}>
@@ -238,6 +240,7 @@ export const AssistantMessage = memo(function AssistantMessage({
             ) : null}
             <IconButton
               icon={<IconRefreshOutline16 />}
+              className={styles.regenerate}
               tooltip={t('regenerate')}
               tooltipPlacement="bottom"
               disabled={busy || refused}

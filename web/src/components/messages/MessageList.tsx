@@ -54,6 +54,7 @@ export const MessageList = ({
   const [showJump, setShowJump] = useState(false)
   const { rendered: jumpRendered, closing: jumpClosing } = usePresence(showJump, 150)
   const scrollTopRef = useRef(0)
+  const followRafRef = useRef(0)
   const restoreScrollRef = useRef<{ messageId: string; top: number } | null>(null)
   const messages = getVisibleMessages(session)
   const [previousVersions, setPreviousVersions] = useState(() =>
@@ -67,12 +68,48 @@ export const MessageList = ({
     setPreviousVersions(versions)
   }
   const lastMessageId = messages.at(-1)?.id
+  const stopFollow = useCallback(() => {
+    if (followRafRef.current) {
+      cancelAnimationFrame(followRafRef.current)
+      followRafRef.current = 0
+    }
+  }, [])
+  // 切换会话/版本时直接落到底部，避免跨会话的滚动动画
+  const jumpToBottom = useCallback(() => {
+    stopFollow()
+    const el = scrollRef.current
+    if (!el) {
+      return
+    }
+    el.scrollTop = el.scrollHeight
+    scrollTopRef.current = el.scrollTop
+  }, [stopFollow])
+  // 流式输出时用缓动跟随底部：每帧收敛剩余距离，内容持续增长时保持顺滑
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
-    if (el && stickyRef.current) {
-      el.scrollTop = el.scrollHeight
-      scrollTopRef.current = el.scrollTop
+    if (!el || !stickyRef.current || followRafRef.current) {
+      return
     }
+    const step = () => {
+      followRafRef.current = 0
+      const view = scrollRef.current
+      if (!view || !stickyRef.current) {
+        return
+      }
+      const target = view.scrollHeight - view.clientHeight
+      const delta = target - view.scrollTop
+      if (delta <= 0.5) {
+        if (delta > 0) {
+          view.scrollTop = target
+        }
+        scrollTopRef.current = view.scrollTop
+        return
+      }
+      view.scrollTop += Math.max(1, delta * 0.2)
+      scrollTopRef.current = view.scrollTop
+      followRafRef.current = requestAnimationFrame(step)
+    }
+    followRafRef.current = requestAnimationFrame(step)
   }, [])
 
   // 内容、键盘和输入框高度变化时，继续遵循当前跟随状态。
@@ -103,8 +140,10 @@ export const MessageList = ({
       return
     }
     stickyRef.current = true
-    scrollToBottom()
-  }, [session.id, lastMessageId, scrollToBottom])
+    jumpToBottom()
+  }, [session.id, lastMessageId, jumpToBottom])
+
+  useEffect(() => stopFollow, [stopFollow])
 
   useEffect(closeSearchPanel, [session.id, lastMessageId])
 
@@ -128,7 +167,7 @@ export const MessageList = ({
       return
     }
     if (stickyRef.current) {
-      scrollToBottom()
+      jumpToBottom()
     } else {
       el.scrollTop = scrollTopRef.current
     }
@@ -137,68 +176,72 @@ export const MessageList = ({
       // 仅在用户向上滚动时停止跟随底部，布局或内容增高时保持跟随状态。
       if (nearBottom) {
         stickyRef.current = true
-      } else if (el.scrollTop < scrollTopRef.current) {
+        setShowJump(false)
+      } else if (el.scrollTop < scrollTopRef.current - 1) {
         stickyRef.current = false
+        stopFollow()
+        setShowJump(el.scrollHeight - el.clientHeight > 120)
       }
       scrollTopRef.current = el.scrollTop
-      setShowJump(!nearBottom && el.scrollHeight - el.clientHeight > 400)
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [isMobile, scrollToBottom])
+  }, [isMobile, jumpToBottom, stopFollow])
 
   const lastIndex = messages.length - 1
   const uploadRetryId = getUploadRetryId(messages, streaming)
   return (
     <ScrollToBottomContext.Provider value={scrollToBottom}>
-      <div ref={isMobile ? undefined : scrollRef} className={styles.container}>
-        <div ref={isMobile ? scrollRef : undefined} className={styles.scroll}>
-          <div ref={contentRef} className={styles.column}>
-            {messages.map((message, index) =>
-              message.role === 'user' ? (
-                <UserMessage
-                  key={message.id}
-                  sessionId={session.id}
-                  message={message}
-                  retryUploadId={uploadRetryId}
-                  isFirst={index === 0}
-                  isLast={index === lastIndex || index === lastIndex - 1}
-                  enter={index === lastIndex}
-                  busy={streaming}
-                  versions={versions.get(message.id) ?? EMPTY_VERSIONS}
-                  onSelectVersion={selectVersion}
-                />
-              ) : (
-                <AssistantMessage
-                  key={message.id}
-                  sessionId={session.id}
-                  message={message}
-                  isLast={index === lastIndex}
-                  enter={index === lastIndex}
-                  streaming={streaming && index === lastIndex}
-                  busy={streaming}
-                  versions={versions.get(message.id) ?? EMPTY_VERSIONS}
-                  onSelectVersion={selectVersion}
-                />
-              )
-            )}
+      <div className={styles.container}>
+        <div className={styles.scrollLayer}>
+          <div ref={scrollRef} className={styles.scroll}>
+            <div ref={contentRef} className={styles.column}>
+              {messages.map((message, index) =>
+                message.role === 'user' ? (
+                  <UserMessage
+                    key={message.id}
+                    sessionId={session.id}
+                    message={message}
+                    retryUploadId={uploadRetryId}
+                    isFirst={index === 0}
+                    isLast={index === lastIndex || index === lastIndex - 1}
+                    enter={index === lastIndex}
+                    busy={streaming}
+                    versions={versions.get(message.id) ?? EMPTY_VERSIONS}
+                    onSelectVersion={selectVersion}
+                  />
+                ) : (
+                  <AssistantMessage
+                    key={message.id}
+                    sessionId={session.id}
+                    message={message}
+                    isLast={index === lastIndex}
+                    enter={index === lastIndex}
+                    streaming={streaming && index === lastIndex}
+                    busy={streaming}
+                    versions={versions.get(message.id) ?? EMPTY_VERSIONS}
+                    onSelectVersion={selectVersion}
+                  />
+                )
+              )}
+            </div>
           </div>
+          {jumpRendered ? (
+            <button
+              type="button"
+              className={clsx(styles.jumpButton, jumpClosing && styles.closing)}
+              aria-label={t('scrollToBottom')}
+              onClick={() => {
+                stickyRef.current = true
+                setShowJump(false)
+                scrollToBottom()
+              }}
+            >
+              <IconArrowDownOutline16 />
+            </button>
+          ) : null}
         </div>
         {footer}
-        {jumpRendered ? (
-          <button
-            type="button"
-            className={clsx(styles.jumpButton, jumpClosing && styles.closing)}
-            aria-label={t('scrollToBottom')}
-            onClick={() => {
-              stickyRef.current = true
-              scrollToBottom()
-              setShowJump(false)
-            }}
-          >
-            <IconArrowDownOutline16 />
-          </button>
-        ) : null}
       </div>
     </ScrollToBottomContext.Provider>
   )

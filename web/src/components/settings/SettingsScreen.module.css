@@ -290,6 +290,47 @@
   color: var(--dsw-alias-label-caption);
 }
 
+/* 权限说明文档 */
+.docMeta {
+  margin: 4px 16px 12px;
+  color: var(--dsw-alias-label-caption);
+  font: var(--dsw-font-xs-12);
+}
+
+.docParagraph {
+  margin: 0 16px 10px;
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xs-13);
+  line-height: 21px;
+}
+
+.permissionItem {
+  padding: 12px 16px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
+.permissionName {
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-s-strong-14);
+}
+
+.permissionLabel {
+  margin-top: 8px;
+  color: var(--dsw-alias-label-caption);
+  font: var(--dsw-font-xs-12);
+}
+
+.permissionText {
+  margin: 2px 0 0;
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xs-13);
+  line-height: 20px;
+}
+
 /* iOS 风格开关 */
 .switch {
   position: relative;

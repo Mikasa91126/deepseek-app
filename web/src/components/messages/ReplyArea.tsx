@@ -1,6 +1,6 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
-import { memo, useEffect, useState, type ReactNode } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   IconBrowseOutline16,
   IconBrowseWarningOutline16,
@@ -30,7 +30,7 @@ import {
 } from '../../services/chat/view.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { Markdown } from '../markdown/Markdown.js'
-import { SiteThumbnails } from '../search/SiteLogo.js'
+import { PageThumbnails, SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
 import styles from './ReplyArea.module.css'
 import './thinking.markdown.css'
@@ -73,14 +73,15 @@ export const ReplyArea = memo(function ReplyArea({
   // 未记录请求开关时，按是否有思考内容显示标题。
   const thinking = message.thinking ?? view.steps.some((step) => step.type === 'thinking')
   const title = thinking ? getAreaTitle(view, streaming, Date.now(), hasResponse) : null
-  // 设置「思考内容自动折叠」开启时，思考结束后收起一次
+  // 设置「思考内容自动折叠」开启时，回答开始输出就折叠（与官方 App 一致），
+  // 而不是等整条回答流式结束才收起。
   useEffect(() => {
-    if (!autoCollapse || streaming || !title || collapsedOnce) {
+    if (!autoCollapse || !hasResponse || !title || collapsedOnce) {
       return
     }
     setOpen(false)
     setCollapsedOnce(true)
-  }, [autoCollapse, streaming, title, collapsedOnce])
+  }, [autoCollapse, hasResponse, title, collapsedOnce])
   if (view.steps.length === 0 && !(message.thinking && streaming)) {
     return null
   }
@@ -135,14 +136,19 @@ const StepItem = ({
       const lastBlock = step.blocks.at(-1)
       const thinking =
         streaming && lastBlock?.startedAt !== undefined && lastBlock.endedAt === undefined
+      const content = step.blocks.map((block) => block.thinking).join('')
       return (
         <ContentItem isLast={isLast} active={thinking}>
-          <Markdown
-            content={step.blocks.map((block) => block.thinking).join('')}
-            loading={thinking}
-            cacheKey={`${message.id}-${step.key}`}
-            disableLink
-          />
+          {thinking ? (
+            <LiveThinking content={content} cacheKey={`${message.id}-${step.key}`} />
+          ) : (
+            <Markdown
+              content={content}
+              loading={false}
+              cacheKey={`${message.id}-${step.key}`}
+              disableLink
+            />
+          )}
         </ContentItem>
       )
     }
@@ -169,6 +175,22 @@ const StepItem = ({
     default:
       return null
   }
+}
+
+/** 思考正在流式输出时的窗口：固定几行高度，内部自动滚到底，上下渐隐 */
+const LiveThinking = ({ content, cacheKey }: { content: string; cacheKey: string }) => {
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [content])
+  return (
+    <div ref={ref} className={styles.liveWindow}>
+      <Markdown content={content} loading cacheKey={cacheKey} disableLink />
+    </div>
+  )
 }
 
 /** 思考或过程性文字：左侧圆点 + 竖线，小号 markdown */
@@ -204,7 +226,6 @@ const SearchRow = ({
   const t = useTranslate()
   const entry = useSearchPanel((state) => state.entry)
   const wip = step.status === 'wip'
-  const tick = useTicker(wip && step.queries.length > 1, 2000)
   const count = step.results.length
   const clickable = !wip && count > 0
   const panelEntry = `${message.id}-search-${step.key}`
@@ -217,9 +238,7 @@ const SearchRow = ({
       step.queries.length > 0 ? (
         <>
           <span className={styles.prefix}>{t('toolSearchIntro')}</span>
-          <span className={styles.query} key={tick}>
-            {step.queries[tick % step.queries.length]}
-          </span>
+          <span className={styles.query}>{step.queries.join(' ')}</span>
         </>
       ) : (
         <span>{t(isImageSearchKind(step.kind) ? 'imageSearching' : 'messageSearching')}</span>
@@ -306,7 +325,7 @@ const PageLink = ({ page, failedTip }: { page: PageItem; failedTip?: string }) =
   </span>
 )
 
-/** 边想边搜打开的网页：「浏览 N 个页面」+ 最多 5 个页面 */
+/** 边想边搜打开的网页：「已浏览 N 个页面」+ 最多 5 个站点图标，点击查看页面列表 */
 const OpenRow = ({
   step,
   sources,
@@ -317,39 +336,37 @@ const OpenRow = ({
   isLast: boolean
 }) => {
   const t = useTranslate()
+  const entry = useSearchPanel((state) => state.entry)
   const allFailed = step.pages.every((page) => page.status === 'failed')
   const count = step.pages.length
   const intro = t(count === 1 ? 'toolOpenOneIntro' : 'toolOpensIntro', { count })
+  const panelPages = step.pages
+    .map((page) => sources.find((source) => source.url === page.url))
+    .filter((source): source is Source => Boolean(source))
   const panelEntry = `open-${step.pages[0]?.id}`
+  const clickable = !allFailed && panelPages.length > 0
   return (
-    <ToolRow
-      icon={allFailed ? <IconBrowseWarningOutline16 /> : <IconBrowseOutline16 />}
-      isLast={isLast}
+    <div
+      className={clsx(
+        styles.row,
+        !isLast && styles.withLine,
+        clickable && styles.clickable,
+        entry === panelEntry && styles.active
+      )}
+      onClick={clickable ? () => toggleSearchPanel(panelEntry, panelPages) : undefined}
     >
+      <span className={styles.rowIcon}>
+        {allFailed ? <IconBrowseWarningOutline16 /> : <IconBrowseOutline16 />}
+      </span>
       {allFailed ? (
-        t('toolOpenFail')
+        <span>{t('toolOpenFail')}</span>
       ) : (
         <>
           <span className={styles.intro}>{intro}</span>
-          {step.pages.slice(0, 5).map((page) => (
-            <PageLink key={page.id} page={page} failedTip={t('toolOpenFailTooltip')} />
-          ))}
-          {count > 5 ? (
-            <span
-              className={styles.chip}
-              onClick={() =>
-                toggleSearchPanel(
-                  panelEntry,
-                  sources.filter((source) => step.pages.some((page) => page.url === source.url))
-                )
-              }
-            >
-              {t('toolOpenViewAll')}
-            </span>
-          ) : null}
+          <PageThumbnails pages={step.pages} sources={sources} />
         </>
       )}
-    </ToolRow>
+    </div>
   )
 }
 
